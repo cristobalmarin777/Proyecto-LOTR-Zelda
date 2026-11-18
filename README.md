@@ -21,8 +21,10 @@ principal en Godot 4 con GDScript.
 4. Pulsa **F6** o el botón de ejecutar proyecto.
 
 Controles: `WASD` o flechas para moverse, `ESPACIO` para atacar, `E` para
-interactuar, `Q` para Miruvor, `M` para abrir la carta regional y `F5` para
-guardar. La partida se guarda localmente en `user://`.
+interactuar, `Q` para Miruvor, `M` para abrir la carta regional, `F11` para
+alternar entre pantalla completa y ventana, y `F5` para guardar. En modo
+ventana puedes cambiar el tamaño libremente. La partida se guarda localmente
+en `user://`.
 
 La versión Godot ya contiene el núcleo del port: mundo determinista por chunks,
 biomas, Bosque Viejo oscuro, minimapa zonal con niebla, cofres de cartas,

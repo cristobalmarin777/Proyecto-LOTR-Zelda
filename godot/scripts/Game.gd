@@ -121,6 +121,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.notify("Equipado: Arco de la Comarca [Q].")
 		return
 	match event.keycode:
+		KEY_F11:
+			toggle_fullscreen()
 		KEY_SPACE:
 			player.request_attack()
 		KEY_E:
@@ -142,6 +144,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				hud.notify("Equipado: Arco de la Comarca [Q].")
 		KEY_F5:
 			save_game()
+
+func toggle_fullscreen() -> void:
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		hud.notify("Modo ventana: puedes redimensionar la ventana libremente.")
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		hud.notify("Pantalla completa activada.")
 
 func spawn_authored_shire() -> void:
 	for data in world.shire.npcs:
