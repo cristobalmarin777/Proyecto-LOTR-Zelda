@@ -14,8 +14,10 @@ const ACTIVE_CHUNK_RADIUS := 2
 
 var world_seed := 19771029
 var player: MiddleEarthPlayer
+var shire: ShireMap = ShireMap.new()
 var populated_chunks: Dictionary = {}
 var opened_chests: Dictionary = {}
+var opened_story_chests: Dictionary = {}
 var revealed_atlases: Dictionary = {"0,0": true}
 
 func bind_player(value: MiddleEarthPlayer) -> void:
@@ -52,6 +54,8 @@ func biome_at_cell(cell_x: int, cell_y: int) -> String:
 	# La Comarca artesanal se reserva en el centro; las demás regiones forman
 	# franjas amplias y predecibles, con ruido para que sus fronteras no sean rectas.
 	var wobble := floori((hash01(floori(cell_x / 12.0), floori(cell_y / 12.0), 17) - 0.5) * 22.0)
+	if shire.has_inner_cell(cell_x, cell_y):
+		return "OLD_FOREST" if shire.tile_at(cell_x, cell_y) == ShireMap.Tile.DARK_FOREST else "SHIRE"
 	if cell_x >= -10 and cell_x <= 70 and cell_y >= -8 and cell_y <= 58:
 		return "SHIRE"
 	if cell_x + wobble < -46:
@@ -82,6 +86,8 @@ func darkness_at(world_position: Vector2) -> float:
 func is_blocked(world_position: Vector2) -> bool:
 	var cell_x := floori(world_position.x / TILE_SIZE)
 	var cell_y := floori(world_position.y / TILE_SIZE)
+	if shire.has_inner_cell(cell_x, cell_y):
+		return shire.tile_is_solid(shire.tile_at(cell_x, cell_y))
 	var biome := biome_at_cell(cell_x, cell_y)
 	if biome == "SHIRE":
 		return false
@@ -200,6 +206,9 @@ func _draw() -> void:
 	draw_points_of_interest(start_x, end_x, start_y, end_y)
 
 func draw_terrain_cell(cell_x: int, cell_y: int) -> void:
+	if shire.has_inner_cell(cell_x, cell_y):
+		draw_shire_tile(cell_x, cell_y, shire.tile_at(cell_x, cell_y))
+		return
 	var biome := biome_at_cell(cell_x, cell_y)
 	var rect := Rect2(cell_x * TILE_SIZE, cell_y * TILE_SIZE, TILE_SIZE + 1.0, TILE_SIZE + 1.0)
 	var base := Color("5d9b4d")
@@ -222,6 +231,111 @@ func draw_terrain_cell(cell_x: int, cell_y: int) -> void:
 		draw_circle(center, 4.0, Color("38713a"))
 	if (cell_x + cell_y) % 9 == 0:
 		draw_line(Vector2(rect.position.x, center.y), Vector2(rect.end.x, center.y), Color(0.0, 0.0, 0.0, 0.035), 1.0)
+
+func draw_shire_tile(cell_x: int, cell_y: int, tile: int) -> void:
+	# Versión nativa de los tiles pixel-art del prototipo. Se compone con formas
+	# de 2 a 4 píxeles y no depende de una textura externa.
+	var origin := Vector2(cell_x * TILE_SIZE, cell_y * TILE_SIZE)
+	var rect := Rect2(origin, Vector2(TILE_SIZE, TILE_SIZE))
+	var seed_detail := hash01(cell_x, cell_y, 601)
+	match tile:
+		ShireMap.Tile.GRASS:
+			draw_grass_base(origin, rect)
+		ShireMap.Tile.TALL_GRASS:
+			draw_grass_base(origin, rect)
+			for y in range(4, 28, 8):
+				for x in range(4, 28, 8):
+					draw_rect(Rect2(origin + Vector2(x, y + 2), Vector2(6, 4)), Color("295b1a"))
+					draw_rect(Rect2(origin + Vector2(x + 1, y), Vector2(2, 5)), Color("63b546"))
+					draw_rect(Rect2(origin + Vector2(x + 4, y + 1), Vector2(2, 4)), Color("79c95b"))
+		ShireMap.Tile.FLOWERS:
+			draw_grass_base(origin, rect)
+			for flower in [[Vector2(6, 7), Color("ffd84d")], [Vector2(20, 10), Color("ff7088")], [Vector2(11, 22), Color.WHITE], [Vector2(24, 24), Color("ffd84d")]]:
+				draw_rect(Rect2(origin + flower[0], Vector2(4, 4)), flower[1])
+				draw_rect(Rect2(origin + flower[0] + Vector2(1, 1), Vector2(2, 2)), Color("d97b16"))
+		ShireMap.Tile.DIRT_PATH:
+			draw_rect(rect, Color("b98f58"))
+			for pebble in [Vector2(3, 5), Vector2(14, 8), Vector2(25, 4), Vector2(8, 19), Vector2(19, 23), Vector2(27, 17), Vector2(5, 27), Vector2(15, 15)]:
+				draw_rect(Rect2(origin + pebble, Vector2(3, 2)), Color("9d7440") if seed_detail < 0.5 else Color("cfb576"))
+		ShireMap.Tile.COBBLESTONE:
+			draw_rect(rect, Color("5a5f66"))
+			for stone in [Rect2(1, 1, 14, 14), Rect2(17, 1, 14, 14), Rect2(1, 17, 9, 14), Rect2(12, 17, 19, 14)]:
+				draw_rect(Rect2(origin + stone.position, stone.size), Color("878d96"))
+				draw_rect(Rect2(origin + stone.position + Vector2(1, 1), stone.size - Vector2(3, 3)), Color("9da4ad"))
+		ShireMap.Tile.WATER:
+			draw_rect(rect, Color("235789"))
+			var shift := int(Time.get_ticks_msec() / 450) % 2 * 4
+			draw_rect(Rect2(origin + Vector2((4 + shift) % 28, 7), Vector2(10, 2)), Color("5698d4"))
+			draw_rect(Rect2(origin + Vector2((16 - shift + 28) % 28, 17), Vector2(12, 2)), Color("7ab8eb"))
+			draw_rect(Rect2(origin + Vector2((8 + shift) % 28, 26), Vector2(9, 2)), Color("5698d4"))
+		ShireMap.Tile.BRIDGE:
+			draw_rect(rect, Color("694221"))
+			for x in range(0, 32, 8):
+				draw_rect(Rect2(origin + Vector2(x, 0), Vector2(7, 32)), Color("9c6836"))
+			draw_rect(Rect2(origin, Vector2(32, 4)), Color("4d2e14"))
+			draw_rect(Rect2(origin + Vector2(0, 28), Vector2(32, 4)), Color("4d2e14"))
+		ShireMap.Tile.TREE:
+			draw_grass_base(origin, rect)
+			draw_rect(Rect2(origin + Vector2(4, 24), Vector2(24, 6)), Color(0, 0, 0, 0.28))
+			draw_rect(Rect2(origin + Vector2(11, 18), Vector2(10, 11)), Color("5c3a1e"))
+			draw_rect(Rect2(origin + Vector2(3, 4), Vector2(26, 18)), Color("1e4d1b"))
+			draw_rect(Rect2(origin + Vector2(5, 2), Vector2(22, 16)), Color("2e6f28"))
+			draw_rect(Rect2(origin + Vector2(7, 4), Vector2(18, 11)), Color("44913b"))
+			draw_rect(Rect2(origin + Vector2(9, 5), Vector2(10, 6)), Color("62b356"))
+		ShireMap.Tile.FENCE:
+			draw_grass_base(origin, rect)
+			draw_rect(Rect2(origin + Vector2(4, 8), Vector2(6, 20)), Color("5e3c1b"))
+			draw_rect(Rect2(origin + Vector2(22, 8), Vector2(6, 20)), Color("5e3c1b"))
+			draw_rect(Rect2(origin + Vector2(0, 12), Vector2(32, 4)), Color("7a4e26"))
+			draw_rect(Rect2(origin + Vector2(0, 20), Vector2(32, 4)), Color("7a4e26"))
+		ShireMap.Tile.ROCK:
+			draw_grass_base(origin, rect)
+			draw_rect(Rect2(origin + Vector2(4, 8), Vector2(24, 18)), Color("4a4e54"))
+			draw_rect(Rect2(origin + Vector2(6, 6), Vector2(20, 16)), Color("6c727a"))
+			draw_rect(Rect2(origin + Vector2(8, 8), Vector2(14, 10)), Color("8d949e"))
+		ShireMap.Tile.HOBBIT_WALL:
+			draw_rect(rect, Color("d9c29c"))
+			draw_rect(Rect2(origin, Vector2(32, 12)), Color("3d782b"))
+			draw_rect(Rect2(origin + Vector2(0, 10), Vector2(32, 4)), Color("5ba843"))
+			draw_rect(Rect2(origin + Vector2(0, 14), Vector2(32, 3)), Color("5c3a1e"))
+			draw_rect(Rect2(origin + Vector2(10, 17), Vector2(12, 11)), Color("4a2e16"))
+			draw_rect(Rect2(origin + Vector2(12, 19), Vector2(8, 7)), Color("f5d469"))
+		ShireMap.Tile.HOBBIT_DOOR:
+			draw_rect(rect, Color("d9c29c"))
+			draw_rect(Rect2(origin, Vector2(32, 10)), Color("3d782b"))
+			draw_rect(Rect2(origin + Vector2(5, 8), Vector2(22, 24)), Color("4e2f16"))
+			draw_rect(Rect2(origin + Vector2(7, 10), Vector2(18, 22)), Color("2d7a3e"))
+			draw_rect(Rect2(origin + Vector2(9, 12), Vector2(14, 18)), Color("3a944e"))
+			draw_circle(origin + Vector2(16, 20), 2.0, Color("ffd700"))
+		ShireMap.Tile.CROP_FIELD:
+			draw_rect(rect, Color("5c3d22"))
+			for y in range(3, 30, 8):
+				draw_rect(Rect2(origin + Vector2(2, y), Vector2(28, 4)), Color("472d17"))
+			for plant in [Vector2(6, 6), Vector2(20, 18), Vector2(18, 6), Vector2(7, 19)]:
+				draw_circle(origin + plant + Vector2(3, 3), 3.5, Color("e67e22") if int(plant.x) % 2 == 0 else Color("58b347"))
+		ShireMap.Tile.DARK_FOREST:
+			draw_grass_base(origin, rect, Color("2b5228"))
+			if seed_detail < 0.48:
+				draw_circle(origin + Vector2(16, 10), 13.0, Color("173a21"))
+				draw_circle(origin + Vector2(9, 8), 8.0, Color("1f4a28"))
+				draw_rect(Rect2(origin + Vector2(13, 17), Vector2(6, 14)), Color("3d2c1d"))
+		ShireMap.Tile.MILL_BASE:
+			draw_rect(rect, Color("6e655c"))
+			for y in range(0, 32, 8):
+				for x in range(0, 32, 16):
+					draw_rect(Rect2(origin + Vector2(x + 1, y + 1), Vector2(14, 6)), Color("8c8275"))
+		ShireMap.Tile.CAMPFIRE_ASH:
+			draw_rect(rect, Color("3d332a"))
+			draw_rect(Rect2(origin + Vector2(4, 4), Vector2(24, 24)), Color("2c241d"))
+			draw_circle(origin + Vector2(16, 17), 8.0, Color("595959"))
+			draw_circle(origin + Vector2(16, 17), 5.0, Color("d35400"))
+			draw_circle(origin + Vector2(16, 17), 2.5, Color("f1c40f"))
+
+func draw_grass_base(origin: Vector2, rect: Rect2, color: Color = Color("478932")) -> void:
+	draw_rect(rect, color)
+	for blade in [Vector2(4, 6), Vector2(18, 4), Vector2(26, 12), Vector2(8, 22), Vector2(22, 26), Vector2(14, 15)]:
+		draw_rect(Rect2(origin + blade, Vector2(2, 2)), Color("529b3b"))
+		draw_rect(Rect2(origin + blade + Vector2(2, 2), Vector2(2, 2)), Color("3a7527"))
 
 func draw_points_of_interest(start_x: int, end_x: int, start_y: int, end_y: int) -> void:
 	var from_chunk := Vector2i(floori(float(start_x) / CHUNK_SIZE), floori(float(start_y) / CHUNK_SIZE))

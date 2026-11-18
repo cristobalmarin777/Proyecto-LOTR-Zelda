@@ -15,8 +15,12 @@ static func save_snapshot(player: MiddleEarthPlayer, world: MiddleEarthWorld) ->
 		"equipped_armor": player.equipped_armor_id,
 		"owned_weapons": player.owned_weapons,
 		"owned_armors": player.owned_armors,
+		"active_item": player.active_item,
+		"miruvor_charges": player.miruvor_charges,
+		"bow_unlocked": player.bow_unlocked,
 		"revealed_atlases": world.revealed_atlases,
 		"opened_chests": world.opened_chests,
+		"opened_story_chests": world.opened_story_chests,
 	}
 	var file := FileAccess.open(PATH, FileAccess.WRITE)
 	if file == null:

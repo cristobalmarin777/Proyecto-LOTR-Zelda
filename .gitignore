@@ -5,6 +5,7 @@
 godot/.godot/
 godot/.import/
 godot/export/
+*.uid
 
 # Metadatos del sistema
 .DS_Store

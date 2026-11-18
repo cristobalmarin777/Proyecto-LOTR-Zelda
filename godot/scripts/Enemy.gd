@@ -1,6 +1,8 @@
 class_name MiddleEarthEnemy
 extends Node2D
 
+signal defeated(enemy: MiddleEarthEnemy)
+
 var world: MiddleEarthWorld
 var target: MiddleEarthPlayer
 var enemy_type := "orc"
@@ -12,6 +14,7 @@ var speed := 76.0
 var detection_radius := 175.0
 var xp_reward := 20
 var threat := 0
+var is_mini_boss := false
 var hurt_time := 0.0
 var shoot_cooldown := 1.1
 var flee_time := 0.0
@@ -19,18 +22,19 @@ var stolen_coins := 0
 var patrol_direction := Vector2.RIGHT
 var patrol_time := 1.5
 
-func configure(kind: String, spawn_position: Vector2, player_ref: MiddleEarthPlayer, world_ref: MiddleEarthWorld, danger: int = 0) -> void:
+func configure(kind: String, spawn_position: Vector2, player_ref: MiddleEarthPlayer, world_ref: MiddleEarthWorld, danger: int = 0, mini_boss: bool = false) -> void:
 	enemy_type = kind
 	global_position = spawn_position
 	target = player_ref
 	world = world_ref
 	threat = danger
+	is_mini_boss = mini_boss
 	match enemy_type:
 		"spider":
 			display_name = "Araña del Bosque Viejo"
 			max_hp = 2; damage = 1; speed = 112.0; detection_radius = 195.0; xp_reward = 18
 		"uruk":
-			display_name = "Capitán Uruk-hai"
+			display_name = "Capitán Uruk-hai" if is_mini_boss else "Uruk-hai"
 			max_hp = 9; damage = 2; speed = 92.0; detection_radius = 230.0; xp_reward = 80
 		"goblin":
 			display_name = "Duende Saqueador"
@@ -109,6 +113,7 @@ func take_hit(amount: int, source_position: Vector2) -> bool:
 	if hp <= 0:
 		if target != null:
 			target.add_xp(xp_reward)
+		defeated.emit(self)
 		queue_free()
 	else:
 		queue_redraw()

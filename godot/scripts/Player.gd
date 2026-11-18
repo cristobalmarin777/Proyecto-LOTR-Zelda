@@ -21,6 +21,10 @@ var equipped_weapon_id := "traveler_dagger"
 var equipped_armor_id := "traveler_cloak"
 var owned_weapons: Array = ["traveler_dagger"]
 var owned_armors: Array = ["traveler_cloak"]
+var active_item := "potion"
+var miruvor_charges := 2
+var bow_unlocked := false
+var input_locked := false
 var armor_cooldown := 0.0
 var invulnerability := 0.0
 var attack_time := 0.0
@@ -37,6 +41,9 @@ func _physics_process(delta: float) -> void:
 	invulnerability = maxf(0.0, invulnerability - delta)
 	attack_time = maxf(0.0, attack_time - delta)
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
+	if input_locked:
+		queue_redraw()
+		return
 	var input_direction := read_movement()
 	is_moving = not input_direction.is_zero_approx()
 	if is_moving:
@@ -52,7 +59,7 @@ func read_movement() -> Vector2:
 	return Vector2(horizontal, vertical).normalized()
 
 func request_attack() -> bool:
-	if attack_cooldown > 0.0:
+	if input_locked or attack_cooldown > 0.0:
 		return false
 	attack_time = 0.20
 	attack_cooldown = 0.24
@@ -166,6 +173,9 @@ func restore(snapshot: Dictionary) -> void:
 	equipped_armor_id = str(snapshot.get("equipped_armor", "traveler_cloak"))
 	owned_weapons = Array(snapshot.get("owned_weapons", ["traveler_dagger"]))
 	owned_armors = Array(snapshot.get("owned_armors", ["traveler_cloak"]))
+	active_item = str(snapshot.get("active_item", "potion"))
+	miruvor_charges = int(snapshot.get("miruvor_charges", 2))
+	bow_unlocked = bool(snapshot.get("bow_unlocked", false))
 
 func _draw() -> void:
 	# El protagonista siempre se vuelve a dibujar luminoso; la oscuridad se
@@ -174,6 +184,8 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 12.0, Color(0.93, 0.84, 0.58, flicker))
 	draw_circle(Vector2(0, -5), 6.0, Color(1.0, 0.90, 0.70, flicker))
 	draw_rect(Rect2(-8, 2, 16, 11), Color(0.22, 0.36, 0.50, flicker))
+	if active_item == "bow" and bow_unlocked:
+		draw_arc(Vector2(9, 3), 7.0, -PI * 0.5, PI * 0.5, 8, Color("c98a4b"), 2.0)
 	if attack_time > 0.0:
 		draw_line(Vector2(0, -2), facing * 31.0, Color("fff4c6"), 4.0)
 	if sting_lit():
