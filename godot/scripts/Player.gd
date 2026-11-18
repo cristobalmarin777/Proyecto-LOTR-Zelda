@@ -31,6 +31,7 @@ var attack_time := 0.0
 var attack_cooldown := 0.0
 var is_moving := false
 var orcs_nearby := false
+var walk_time := 0.0
 
 func setup(world_ref: MiddleEarthWorld) -> void:
 	world = world_ref
@@ -47,6 +48,7 @@ func _physics_process(delta: float) -> void:
 	var input_direction := read_movement()
 	is_moving = not input_direction.is_zero_approx()
 	if is_moving:
+		walk_time += delta * 12.0
 		facing = input_direction
 		var desired := global_position + input_direction * move_speed * delta
 		if world == null or not world.is_blocked(desired):
@@ -178,16 +180,63 @@ func restore(snapshot: Dictionary) -> void:
 	bow_unlocked = bool(snapshot.get("bow_unlocked", false))
 
 func _draw() -> void:
-	# El protagonista siempre se vuelve a dibujar luminoso; la oscuridad se
-	# aplica como capa ambiental por encima del mundo, no sobre el personaje.
+	# Sprite pixel-art nativo: el protagonista se dibuja por encima de la capa
+	# ambiental, de modo que sigue siendo el punto más legible en zonas oscuras.
 	var flicker := 0.35 if invulnerability > 0.0 and int(Time.get_ticks_msec() / 70) % 2 == 0 else 1.0
-	draw_circle(Vector2.ZERO, 12.0, Color(0.93, 0.84, 0.58, flicker))
-	draw_circle(Vector2(0, -5), 6.0, Color(1.0, 0.90, 0.70, flicker))
-	draw_rect(Rect2(-8, 2, 16, 11), Color(0.22, 0.36, 0.50, flicker))
+	var bob := sin(walk_time) * 1.3 if is_moving else 0.0
+	var alpha_color := Color(1.0, 1.0, 1.0, flicker)
+	# Sombra y botas.
+	draw_ellipse(Vector2(0, 14 + bob), Vector2(10, 3), Color(0.0, 0.0, 0.0, 0.38 * flicker))
+	draw_rect(Rect2(-8, 8 + bob, 6, 6), Color("352821") * alpha_color)
+	draw_rect(Rect2(2, 8 - bob, 6, 6), Color("352821") * alpha_color)
+	# Capa azul del viajero, cinturón y túnica verde.
+	draw_rect(Rect2(-10, -3 + bob, 20, 13), Color("142938") * alpha_color)
+	draw_rect(Rect2(-8, -5 + bob, 16, 15), Color("315d4c") * alpha_color)
+	draw_rect(Rect2(-9, 5 + bob, 18, 4), Color("1c3c34") * alpha_color)
+	draw_rect(Rect2(-8, 2 + bob, 16, 2), Color("895d2c") * alpha_color)
+	draw_rect(Rect2(-2, 2 + bob, 4, 3), Color("d9b650") * alpha_color)
+	# Cabeza, cabello y capucha.
+	draw_rect(Rect2(-6, -15 + bob, 12, 11), Color("f1c49d") * alpha_color)
+	draw_rect(Rect2(-7, -18 + bob, 14, 5), Color("6b4026") * alpha_color)
+	draw_rect(Rect2(-8, -14 + bob, 3, 8), Color("6b4026") * alpha_color)
+	if facing.y > 0.1:
+		draw_rect(Rect2(-4, -11 + bob, 2, 2), Color("38291f") * alpha_color)
+		draw_rect(Rect2(2, -11 + bob, 2, 2), Color("38291f") * alpha_color)
+	# Broche de la capa y brazo adelantado.
+	draw_circle(Vector2(-7, -2 + bob), 2.0, Color("d5b95f") * alpha_color)
+	draw_rect(Rect2(7, -1 + bob, 5, 9), Color("d7a97d") * alpha_color)
+	# Escudo pequeño cuando hay defensa equipada.
+	if armor_defense() > 0:
+		draw_colored_polygon(PackedVector2Array([Vector2(-12, -1 + bob), Vector2(-7, -4 + bob), Vector2(-4, -1 + bob), Vector2(-5, 7 + bob), Vector2(-9, 10 + bob), Vector2(-12, 6 + bob)]), Color("788b94") * alpha_color)
+		draw_line(Vector2(-9, -2 + bob), Vector2(-9, 7 + bob), Color("c8d6d7") * alpha_color, 1.0)
 	if active_item == "bow" and bow_unlocked:
-		draw_arc(Vector2(9, 3), 7.0, -PI * 0.5, PI * 0.5, 8, Color("c98a4b"), 2.0)
+		draw_arc(Vector2(10, 3 + bob), 7.0, -PI * 0.5, PI * 0.5, 8, Color("c98a4b") * alpha_color, 2.0)
 	if attack_time > 0.0:
-		draw_line(Vector2(0, -2), facing * 31.0, Color("fff4c6"), 4.0)
+		draw_sword_swing(bob, flicker)
+	else:
+		# Hoja enfundada: se ve incluso antes de atacar y comunica el equipo.
+		draw_line(Vector2(8, 3 + bob), Vector2(14, 11 + bob), Color("b8c6c9") * alpha_color, 2.0)
 	if sting_lit():
-		draw_arc(Vector2.ZERO, 20.0, 0.0, TAU, 24, Color("7cecff"), 1.5)
+		draw_arc(Vector2(0, bob), 21.0, 0.0, TAU, 24, Color("7cecff"), 1.5)
+
+func draw_sword_swing(bob: float, flicker: float) -> void:
+	var progress := 1.0 - attack_time / 0.20
+	var start_angle := facing.angle() - 1.35
+	var current_angle := lerpf(start_angle, facing.angle() + 1.35, progress)
+	# Estela dorada detrás de la hoja: el arco permite leer el ataque, no solo
+	# el instante de impacto.
+	draw_arc(Vector2(0, bob), 28.0, start_angle, current_angle, 16, Color(1.0, 0.82, 0.28, 0.38 * flicker), 4.0)
+	draw_set_transform(Vector2(0, bob), current_angle)
+	draw_line(Vector2(3, 0), Vector2(12, 0), Color("70401f") * Color(1, 1, 1, flicker), 4.0)
+	draw_line(Vector2(11, 0), Vector2(32, 0), Color("202c34") * Color(1, 1, 1, flicker), 5.0)
+	draw_line(Vector2(11, 0), Vector2(32, 0), Color("e8f4f2") * Color(1, 1, 1, flicker), 2.0)
+	draw_line(Vector2(6, -5), Vector2(6, 5), Color("d7a846") * Color(1, 1, 1, flicker), 3.0)
+	draw_set_transform(Vector2.ZERO, 0.0)
+
+func draw_ellipse(center: Vector2, radius: Vector2, color: Color) -> void:
+	# Un polígono mantiene la sombra estable con cualquier zoom de cámara.
+	var points := PackedVector2Array()
+	for index in range(16):
+		points.append(center + Vector2.from_angle(TAU * float(index) / 16.0) * radius)
+	draw_colored_polygon(points, color)
 
