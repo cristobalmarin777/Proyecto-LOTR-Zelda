@@ -186,7 +186,7 @@ func _draw() -> void:
 	var bob := sin(walk_time) * 1.3 if is_moving else 0.0
 	var alpha_color := Color(1.0, 1.0, 1.0, flicker)
 	# Sombra y botas.
-	draw_ellipse(Vector2(0, 14 + bob), Vector2(10, 3), Color(0.0, 0.0, 0.0, 0.38 * flicker))
+	draw_ground_shadow(Vector2(0, 14 + bob), Vector2(10, 3), Color(0.0, 0.0, 0.0, 0.38 * flicker))
 	draw_rect(Rect2(-8, 8 + bob, 6, 6), Color("352821") * alpha_color)
 	draw_rect(Rect2(2, 8 - bob, 6, 6), Color("352821") * alpha_color)
 	# Capa azul del viajero, cinturón y túnica verde.
@@ -233,10 +233,9 @@ func draw_sword_swing(bob: float, flicker: float) -> void:
 	draw_line(Vector2(6, -5), Vector2(6, 5), Color("d7a846") * Color(1, 1, 1, flicker), 3.0)
 	draw_set_transform(Vector2.ZERO, 0.0)
 
-func draw_ellipse(center: Vector2, radius: Vector2, color: Color) -> void:
+func draw_ground_shadow(center: Vector2, radius: Vector2, color: Color) -> void:
 	# Un polígono mantiene la sombra estable con cualquier zoom de cámara.
 	var points := PackedVector2Array()
 	for index in range(16):
 		points.append(center + Vector2.from_angle(TAU * float(index) / 16.0) * radius)
 	draw_colored_polygon(points, color)
-
