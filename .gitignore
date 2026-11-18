@@ -1,0 +1,10 @@
+# Paquetes locales de entrega
+*.zip
+
+# Estado generado por Godot
+godot/.godot/
+godot/.import/
+godot/export/
+
+# Metadatos del sistema
+.DS_Store

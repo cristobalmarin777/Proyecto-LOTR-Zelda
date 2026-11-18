@@ -1,0 +1,348 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  background: radial-gradient(circle at center, #1b2218 0%, #0b0e0a 100%);
+  color: #f3e8c8;
+  font-family: 'Courier New', Courier, monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#game-wrapper {
+  padding: 12px;
+  background: #231911;
+  border: 4px solid #8c6d3b;
+  box-shadow:
+    0 0 0 4px #120d08,
+    0 18px 45px rgba(0, 0, 0, 0.85);
+  border-radius: 6px;
+}
+
+#game-container {
+  position: relative;
+  width: 960px;
+  height: 640px;
+  background: #101810;
+  overflow: hidden;
+}
+
+#game-canvas {
+  display: block;
+  width: 960px;
+  height: 640px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: crosshair;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 11, 8, 0.84);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+  backdrop-filter: blur(2px);
+}
+
+.overlay.active {
+  display: flex;
+}
+
+.title-card,
+.snes-panel {
+  width: 680px;
+  max-width: 92%;
+  background: linear-gradient(180deg, #1b1610 0%, #100c08 100%);
+  border: 4px solid #d4af37;
+  box-shadow:
+    inset 0 0 0 3px #423117,
+    0 12px 30px rgba(0, 0, 0, 0.9);
+  padding: 26px 30px;
+  text-align: center;
+}
+
+.snes-panel.danger {
+  border-color: #c93b2b;
+}
+
+.crest {
+  color: #e6c35c;
+  font-size: 13px;
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+
+.title-card h1 {
+  font-size: 32px;
+  color: #ffd866;
+  text-shadow: 3px 3px 0 #4d2600;
+  letter-spacing: 2px;
+}
+
+.title-card h2 {
+  font-size: 19px;
+  color: #a8d888;
+  margin-top: 4px;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 0 #152b0e;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #bba982;
+  margin-bottom: 16px;
+}
+
+.lore-box {
+  background: rgba(38, 52, 28, 0.45);
+  border: 2px solid #4f6d3a;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e6efd8;
+  margin-bottom: 18px;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.controls-grid.compact {
+  margin-top: 14px;
+}
+
+.ctrl-item {
+  background: #221c15;
+  border: 2px solid #594425;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.key {
+  background: #3d2e1a;
+  border: 1px solid #d4af37;
+  color: #ffe07d;
+  padding: 2px 7px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.snes-btn {
+  background: linear-gradient(180deg, #3c6e29 0%, #244716 100%);
+  color: #fff6d6;
+  border: 3px solid #9ad972;
+  padding: 12px 24px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+  transition: transform 0.1s, filter 0.1s;
+}
+
+.snes-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.snes-btn.secondary {
+  background: linear-gradient(180deg, #594124 0%, #382714 100%);
+  border-color: #c8a263;
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.snes-panel h3 {
+  color: #ffd866;
+  font-size: 22px;
+  margin-bottom: 8px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.panel-hint {
+  font-size: 12px;
+  color: #b5a37e;
+  margin-bottom: 14px;
+}
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.inv-slot {
+  background: #1d1710;
+  border: 2px solid #6b532e;
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inv-slot.equipped {
+  border-color: #ffd866;
+  background: #2d2314;
+  box-shadow: inset 0 0 8px rgba(255, 216, 102, 0.35);
+}
+
+.inv-slot-title {
+  font-weight: bold;
+  color: #ffe394;
+  font-size: 14px;
+}
+
+.inv-slot-qty {
+  font-size: 12px;
+  color: #9ad972;
+}
+
+.inv-desc {
+  background: #14100b;
+  border: 2px solid #4a381f;
+  padding: 10px;
+  font-size: 13px;
+  color: #e6dcc5;
+  margin-bottom: 10px;
+  min-height: 44px;
+}
+
+.stats-bar {
+  font-size: 13px;
+  color: #b8d8a0;
+  display: flex;
+  justify-content: space-around;
+  border-top: 1px solid #3c2f1b;
+  padding-top: 10px;
+}
+
+.world-map-panel {
+  width: 650px;
+  padding: 18px 24px;
+}
+
+#world-map-canvas {
+  display: block;
+  width: min(576px, 100%);
+  height: auto;
+  margin: 0 auto 10px;
+  image-rendering: pixelated;
+  background: #0b0e0b;
+  border: 2px solid #6b532e;
+}
+
+.loot-panel {
+  width: 480px;
+}
+
+.loot-reward {
+  margin: 16px 0 10px;
+  padding: 16px;
+  color: #78e9ff;
+  background: #141d1a;
+  border: 2px solid #447563;
+  font-size: 17px;
+  font-weight: bold;
+}
+
+.shop-panel {
+  width: 680px;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.shop-item {
+  background: #18140e;
+  border: 2px solid #6b532e;
+  color: #f3e8c8;
+  padding: 10px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.shop-item:hover:not(:disabled) {
+  border-color: #ffd866;
+  background: #2d2314;
+}
+
+.shop-item:disabled {
+  opacity: 0.58;
+  cursor: default;
+}
+
+/* Cuadro de diálogo inferior estilo Zelda ALTTP */
+.dialog-box {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  bottom: 22px;
+  background: rgba(12, 16, 22, 0.94);
+  border: 4px solid #e6c665;
+  box-shadow:
+    inset 0 0 0 2px #3c2e14,
+    0 8px 24px rgba(0, 0, 0, 0.85);
+  padding: 14px 18px;
+  z-index: 15;
+}
+
+.dialog-box.hidden {
+  display: none;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #4d3d22;
+  padding-bottom: 4px;
+}
+
+#dialog-speaker {
+  color: #ffd866;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.dialog-hint {
+  color: #9ad972;
+  font-size: 12px;
+}
+
+.dialog-text {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #f8f2e0;
+  min-height: 44px;
+}

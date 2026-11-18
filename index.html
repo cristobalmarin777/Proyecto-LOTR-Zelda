@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El Señor de los Anillos: Sombras de la Tierra Media — Etapa 1</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container">
+      <canvas id="game-canvas" width="960" height="640"></canvas>
+
+      <!-- Pantalla de Título / Controles -->
+      <div id="title-overlay" class="overlay active">
+        <div class="title-card">
+          <div class="crest">⚔️ ANILLO Y ESPADA ⚔️</div>
+          <h1>EL SEÑOR DE LOS ANILLOS</h1>
+          <h2>Sombras de la Tierra Media</h2>
+          <p class="subtitle">Prototipo Jugable 16-Bit Action RPG — Etapa 1: La Comarca</p>
+
+          <div class="lore-box">
+            <p>
+              Sombras extrañas acechan las fronteras de <strong>Delagua y Bolsón Cerrado</strong>.
+              Exploradores orcos y arañas del Bosque Viejo han cruzado el Río El Agua.
+              Empuña a <em>Dardo</em>, protege a los hobbits y explora La Comarca.
+            </p>
+          </div>
+
+          <div class="controls-grid">
+            <div class="ctrl-item"><span class="key">WASD / Flechas</span><span>Moverse (4 dir.)</span></div>
+            <div class="ctrl-item"><span class="key">ESPACIO / Clic</span><span>Ataque con Espada</span></div>
+            <div class="ctrl-item"><span class="key">E</span><span>Hablar / Cofres / Carteles</span></div>
+            <div class="ctrl-item"><span class="key">Q</span><span>Usar Objeto Equipado</span></div>
+            <div class="ctrl-item"><span class="key">I</span><span>Inventario / Cambiar Objeto</span></div>
+            <div class="ctrl-item"><span class="key">M</span><span>Atlas y Niebla de Guerra</span></div>
+            <div class="ctrl-item"><span class="key">ESC</span><span>Pausa / Ayuda</span></div>
+          </div>
+
+          <button id="btn-start-game" class="snes-btn">COMENZAR AVENTURA (ENTER / ESPACIO)</button>
+        </div>
+      </div>
+
+      <!-- Pantalla de Inventario (I) -->
+      <div id="inventory-overlay" class="overlay">
+        <div class="snes-panel">
+          <h3>🎒 INVENTARIO DEL AVENTURERO</h3>
+          <p class="panel-hint">Haz clic o usa 1-2 para equipar en la ranura activa (Q) · Pulsa [I] para cerrar</p>
+          <div id="inventory-grid" class="inv-grid"></div>
+          <div id="inventory-desc" class="inv-desc">Selecciona un objeto para ver sus detalles.</div>
+          <div class="stats-bar" id="player-stats-summary"></div>
+        </div>
+      </div>
+
+      <!-- Atlas regional (M): muestra una región finita y la niebla exterior. -->
+      <div id="world-map-overlay" class="overlay">
+        <div class="snes-panel world-map-panel">
+          <h3>🗺️ ATLAS DEL VIAJERO</h3>
+          <p id="world-map-status" class="panel-hint"></p>
+          <canvas id="world-map-canvas" width="576" height="576" aria-label="Mapa regional"></canvas>
+          <p class="panel-hint">Los pergaminos regionales revelan el terreno. [M] o [ESC] para cerrar.</p>
+        </div>
+      </div>
+
+      <!-- Botín: la recompensa se confirma antes de pasar al inventario. -->
+      <div id="loot-overlay" class="overlay">
+        <div class="snes-panel loot-panel">
+          <h3 id="loot-title">🎁 COFRE DESCUBIERTO</h3>
+          <div id="loot-reward" class="loot-reward"></div>
+          <p id="loot-description" class="panel-hint"></p>
+          <button id="btn-claim-loot" class="snes-btn">RECLAMAR BOTÍN (E / ENTER)</button>
+        </div>
+      </div>
+
+      <div id="shop-overlay" class="overlay">
+        <div class="snes-panel shop-panel">
+          <h3>⚒️ FORJA DE HALDOR</h3>
+          <p id="shop-coins" class="panel-hint"></p>
+          <div id="shop-grid" class="shop-grid"></div>
+          <button id="btn-close-shop" class="snes-btn secondary">CERRAR TIENDA (ESC)</button>
+        </div>
+      </div>
+
+      <!-- Pantalla de Pausa (ESC) -->
+      <div id="pause-overlay" class="overlay">
+        <div class="snes-panel">
+          <h3>⏸ JUEGO EN PAUSA</h3>
+          <div class="controls-grid compact">
+            <div class="ctrl-item"><span class="key">WASD / Flechas</span><span>Movimiento</span></div>
+            <div class="ctrl-item"><span class="key">ESPACIO</span><span>Espada (Cuerpo a cuerpo)</span></div>
+            <div class="ctrl-item"><span class="key">E</span><span>Interactuar / Leer / Abrir</span></div>
+            <div class="ctrl-item"><span class="key">Q</span><span>Usar Objeto (Poción / Arco)</span></div>
+            <div class="ctrl-item"><span class="key">I</span><span>Abrir Inventario</span></div>
+            <div class="ctrl-item"><span class="key">M</span><span>Abrir Atlas Regional</span></div>
+            <div class="ctrl-item"><span class="key">ESC</span><span>Reanudar</span></div>
+          </div>
+          <div class="btn-row">
+            <button id="btn-resume" class="snes-btn">REANUDAR (ESC)</button>
+            <button id="btn-restart" class="snes-btn secondary">REINICIAR EN LA COMARCA</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pantalla de Derrota -->
+      <div id="gameover-overlay" class="overlay">
+        <div class="snes-panel danger">
+          <h3>💀 LA SOMBRA HA CAÍDO SOBRE TI</h3>
+          <p>Has caído defendiendo las tierras de La Comarca, pero aún queda esperanza en la Tierra Media.</p>
+          <button id="btn-retry" class="snes-btn">REINTENTAR AVENTURA (ENTER)</button>
+        </div>
+      </div>
+
+      <!-- Cuadro de Diálogo (SNES Style) -->
+      <div id="dialog-box" class="dialog-box hidden">
+        <div class="dialog-header">
+          <span id="dialog-speaker">Gandalf el Gris</span>
+          <span class="dialog-hint">[E / ESPACIO] Continuar</span>
+        </div>
+        <div id="dialog-text" class="dialog-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
