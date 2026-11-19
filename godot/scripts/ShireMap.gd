@@ -60,14 +60,21 @@ func build_level() -> void:
 		grid[row][0] = Tile.TREE
 		grid[row][COLS - 1] = Tile.TREE
 
-	# 1. NIVELES DE ELEVACIÓN DE HOBBITON (0 = Valle/Lago El Agua, 1 = Terrazas/Fiesta/Granjas, 2 = Bagshot Row, 3 = Cumbre Bag End)
-	# Nivel 1 Norte se extiende hasta la orilla del Lago El Agua (el agua en Nivel 0 actúa como límite natural del nivel superior)
-	elevation.set_height_rect(3, 10, 32, 57, 1)
-	# Nivel 1 Sur (Meseta de Granjas Rurales) linda por el norte directamente con la orilla sur del Lago El Agua
-	elevation.set_height_rect(39, 26, 51, 53, 1)
-	elevation.set_height_rect(3, 15, 16, 56, 2)
-	# Nivel 3 (Cumbre de Bolsón Cerrado): ampliado 1 columna a la derecha (cols 27..43) para calzar exacto con las rampas de 3 tiles
+	# 1. NIVELES DE ELEVACIÓN DE HOBBITON CON CONTORNOS ORGÁNICOS (esquinas achaflanadas + curvas naturales)
+	# Nivel 1 Norte se extiende hasta la orilla del Lago El Agua (el agua en Nivel 0 actúa como límite natural)
+	elevation.set_height_organic_plateau(3, 10, 32, 57, 1, 3)
+	# Nivel 1 Sur (Meseta de Granjas Rurales) linda por el norte con la orilla sur del Lago El Agua
+	elevation.set_height_organic_plateau(39, 26, 51, 53, 1, 2)
+	# Nivel 2 (Ladera Media: Bagshot Row y Colina Oriental) con esquinas suavizadas
+	elevation.set_height_organic_plateau(3, 15, 16, 56, 2, 2)
+	# Nivel 3 (Cumbre de Bolsón Cerrado): mantiene cols 27..43 en la entrada de las rampas y suaviza las esquinas norte
 	elevation.set_height_rect(2, 27, 10, 43, 3)
+	elevation.height_grid[2][27] = 2
+	elevation.height_grid[2][28] = 2
+	elevation.height_grid[3][27] = 2
+	elevation.height_grid[2][43] = 2
+	elevation.height_grid[2][42] = 2
+	elevation.height_grid[3][43] = 2
 
 	# 2. RAMPAS Y PUENTES (Todas las conexiones entre niveles usan textura de camino y anchura exacta de 3 tiles para calzar con los caminos)
 	elevation.add_connection({"id": "ramp_bag_end_west", "type": "ramp", "col": 27, "row": 10, "width_tiles": 3, "height_tiles": 2, "start_height": 2, "end_height": 3, "direction": "north"})

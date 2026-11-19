@@ -29,6 +29,27 @@ func set_height_rect(r1: int, c1: int, r2: int, c2: int, h: int) -> void:
 		for c in range(maxi(0, c1), mini(cols - 1, c2) + 1):
 			height_grid[r][c] = clamped
 
+func set_height_organic_plateau(r1: int, c1: int, r2: int, c2: int, h: int, corner_cut: int = 2) -> void:
+	# Genera una colina/plataforma con esquinas achaflanadas en diagonal (sin ángulos rectos de 90°)
+	var clamped := clampi(h, 0, 3)
+	for r in range(maxi(0, r1), mini(rows - 1, r2) + 1):
+		for c in range(maxi(0, c1), mini(cols - 1, c2) + 1):
+			var d_top := r - r1
+			var d_bot := r2 - r
+			var d_left := c - c1
+			var d_right := c2 - c
+			if corner_cut > 0:
+				if d_top + d_left < corner_cut:
+					continue
+				if d_top + d_right < corner_cut:
+					continue
+				if d_bot + d_left < corner_cut:
+					continue
+				if d_bot + d_right < corner_cut:
+					continue
+			if height_grid[r][c] < clamped:
+				height_grid[r][c] = clamped
+
 func add_connection(conn: Dictionary) -> Dictionary:
 	var col := int(conn.get("col", 0))
 	var row := int(conn.get("row", 0))

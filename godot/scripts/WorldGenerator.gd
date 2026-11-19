@@ -327,11 +327,7 @@ func draw_shire_tile(cell_x: int, cell_y: int, tile: int) -> void:
 				draw_rect(Rect2(origin + stone.position, stone.size), Color("878d96"))
 				draw_rect(Rect2(origin + stone.position + Vector2(1, 1), stone.size - Vector2(3, 3)), Color("9da4ad"))
 		ShireMap.Tile.WATER:
-			draw_rect(rect, Color("235789"))
-			var shift := int(Time.get_ticks_msec() / 450) % 2 * 4
-			draw_rect(Rect2(origin + Vector2((4 + shift) % 28, 7), Vector2(10, 2)), Color("5698d4"))
-			draw_rect(Rect2(origin + Vector2((16 - shift + 28) % 28, 17), Vector2(12, 2)), Color("7ab8eb"))
-			draw_rect(Rect2(origin + Vector2((8 + shift) % 28, 26), Vector2(9, 2)), Color("5698d4"))
+			draw_water_alttp(cell_x, cell_y, origin, rect, grass_col)
 		ShireMap.Tile.BRIDGE:
 			draw_rect(rect, Color("694221"))
 			for x in range(0, 32, 8):
@@ -376,6 +372,64 @@ func draw_shire_tile(cell_x: int, cell_y: int, tile: int) -> void:
 
 	# Dibujar paredes verticales de acantilado y bordes de plataforma elevada
 	draw_cliff_edges(cell_x, cell_y, origin, h)
+
+func draw_water_alttp(cell_x: int, cell_y: int, origin: Vector2, rect: Rect2, grass_col: Color) -> void:
+	draw_rect(rect, Color("235789"))
+	var shift := int(Time.get_ticks_msec() / 450) % 2 * 4
+	draw_rect(Rect2(origin + Vector2((4 + shift) % 28, 7), Vector2(10, 2)), Color("5698d4"))
+	draw_rect(Rect2(origin + Vector2((16 - shift + 28) % 28, 17), Vector2(12, 2)), Color("7ab8eb"))
+	draw_rect(Rect2(origin + Vector2((8 + shift) % 28, 26), Vector2(9, 2)), Color("5698d4"))
+
+	# Orillas orgánicas redondeadas en pixel art donde el agua toca tierra/césped
+	var n_land := shire.tile_at(cell_x, cell_y - 1) != ShireMap.Tile.WATER
+	var s_land := shire.tile_at(cell_x, cell_y + 1) != ShireMap.Tile.WATER
+	var w_land := shire.tile_at(cell_x - 1, cell_y) != ShireMap.Tile.WATER
+	var e_land := shire.tile_at(cell_x + 1, cell_y) != ShireMap.Tile.WATER
+	var bank_col := Color("b8965c")
+	var foam_col := Color("a9def9")
+
+	if n_land and shire.elevation.get_height_at_tile(cell_x, cell_y - 1) == 0:
+		draw_rect(Rect2(origin, Vector2(32, 4)), bank_col)
+		draw_rect(Rect2(origin + Vector2(0, 4), Vector2(32, 2)), foam_col)
+	if s_land:
+		draw_rect(Rect2(origin + Vector2(0, 28), Vector2(32, 4)), bank_col)
+		draw_rect(Rect2(origin + Vector2(0, 26), Vector2(32, 2)), foam_col)
+	if w_land:
+		draw_rect(Rect2(origin, Vector2(4, 32)), bank_col)
+		draw_rect(Rect2(origin + Vector2(4, 0), Vector2(2, 32)), foam_col)
+	if e_land:
+		draw_rect(Rect2(origin + Vector2(28, 0), Vector2(4, 32)), bank_col)
+		draw_rect(Rect2(origin + Vector2(26, 0), Vector2(2, 32)), foam_col)
+
+	if n_land and w_land:
+		draw_pixel_corner_mask(origin, "NW", grass_col, bank_col)
+	if n_land and e_land:
+		draw_pixel_corner_mask(origin, "NE", grass_col, bank_col)
+	if s_land and w_land:
+		draw_pixel_corner_mask(origin, "SW", grass_col, bank_col)
+	if s_land and e_land:
+		draw_pixel_corner_mask(origin, "SE", grass_col, bank_col)
+
+func draw_pixel_corner_mask(origin: Vector2, corner: String, outer_col: Color, rim_col: Color) -> void:
+	# Suaviza esquinas de 90° mediante pasos pixelados de 2px (estética ALTTP 16-bit)
+	var steps := [[10, 2], [8, 2], [6, 2], [4, 2], [2, 2]]
+	for i in range(steps.size()):
+		var w: float = float(steps[i][0])
+		var h: float = float(steps[i][1])
+		var y_off: float = float(i * 2)
+		match corner:
+			"NW":
+				draw_rect(Rect2(origin + Vector2(0, y_off), Vector2(w, h)), outer_col)
+				draw_rect(Rect2(origin + Vector2(w, y_off), Vector2(2, h)), rim_col)
+			"NE":
+				draw_rect(Rect2(origin + Vector2(32.0 - w, y_off), Vector2(w, h)), outer_col)
+				draw_rect(Rect2(origin + Vector2(30.0 - w, y_off), Vector2(2, h)), rim_col)
+			"SW":
+				draw_rect(Rect2(origin + Vector2(0, 30.0 - y_off), Vector2(w, h)), outer_col)
+				draw_rect(Rect2(origin + Vector2(w, 30.0 - y_off), Vector2(2, h)), rim_col)
+			"SE":
+				draw_rect(Rect2(origin + Vector2(32.0 - w, 30.0 - y_off), Vector2(w, h)), outer_col)
+				draw_rect(Rect2(origin + Vector2(30.0 - w, 30.0 - y_off), Vector2(2, h)), rim_col)
 
 func draw_grass_base(origin: Vector2, rect: Rect2, color: Color = Color("58ad34"), seed_val: float = 0.0) -> void:
 	draw_rect(rect, color)
@@ -440,28 +494,72 @@ func draw_dirt_alttp(origin: Vector2, rect: Rect2, seed_val: float) -> void:
 		draw_rect(Rect2(origin + pebble, Vector2(3, 2)), light if seed_val > 0.5 else dark)
 
 func draw_dirt_toothed_edges(cell_x: int, cell_y: int, origin: Vector2, grass_col: Color) -> void:
+	# Autotiling orgánico de 8 vecinos para caminos de tierra:
+	# bordes irregulares dentados, esquinas exteriores redondeadas y esquinas interiores suaves.
 	var grass_like := [ShireMap.Tile.GRASS, ShireMap.Tile.TALL_GRASS, ShireMap.Tile.FLOWERS, ShireMap.Tile.TREE, ShireMap.Tile.FENCE, ShireMap.Tile.ROCK]
 	var shadow := Color("295418")
-	if shire.tile_at(cell_x, cell_y - 1) in grass_like:
+	var n_g := shire.tile_at(cell_x, cell_y - 1) in grass_like
+	var s_g := shire.tile_at(cell_x, cell_y + 1) in grass_like
+	var w_g := shire.tile_at(cell_x - 1, cell_y) in grass_like
+	var e_g := shire.tile_at(cell_x + 1, cell_y) in grass_like
+	var nw_g := shire.tile_at(cell_x - 1, cell_y - 1) in grass_like
+	var ne_g := shire.tile_at(cell_x + 1, cell_y - 1) in grass_like
+	var sw_g := shire.tile_at(cell_x - 1, cell_y + 1) in grass_like
+	var se_g := shire.tile_at(cell_x + 1, cell_y + 1) in grass_like
+	var phase := absi(cell_x * 3 + cell_y * 5)
+
+	if n_g:
 		for i in range(8):
-			var th := 4.0 if i % 2 == 0 else 2.0
+			var th := float(2 + ((i + phase) % 3) * 2)
 			draw_rect(Rect2(origin + Vector2(i * 4, 0), Vector2(4, th)), grass_col)
 			draw_rect(Rect2(origin + Vector2(i * 4, th), Vector2(4, 2)), shadow)
-	if shire.tile_at(cell_x, cell_y + 1) in grass_like:
+	if s_g:
 		for i in range(8):
-			var th := 4.0 if i % 2 == 1 else 2.0
-			draw_rect(Rect2(origin + Vector2(i * 4, 32 - th - 2), Vector2(4, 2)), shadow)
-			draw_rect(Rect2(origin + Vector2(i * 4, 32 - th), Vector2(4, th)), grass_col)
-	if shire.tile_at(cell_x - 1, cell_y) in grass_like:
+			var th := float(2 + ((i + phase + 1) % 3) * 2)
+			draw_rect(Rect2(origin + Vector2(i * 4, 32.0 - th - 2.0), Vector2(4, 2)), shadow)
+			draw_rect(Rect2(origin + Vector2(i * 4, 32.0 - th), Vector2(4, th)), grass_col)
+	if w_g:
 		for i in range(8):
-			var tw := 4.0 if i % 2 == 0 else 2.0
+			var tw := float(2 + ((i + phase) % 3) * 2)
 			draw_rect(Rect2(origin + Vector2(0, i * 4), Vector2(tw, 4)), grass_col)
 			draw_rect(Rect2(origin + Vector2(tw, i * 4), Vector2(2, 4)), shadow)
-	if shire.tile_at(cell_x + 1, cell_y) in grass_like:
+	if e_g:
 		for i in range(8):
-			var tw := 4.0 if i % 2 == 1 else 2.0
-			draw_rect(Rect2(origin + Vector2(32 - tw - 2, i * 4), Vector2(2, 4)), shadow)
-			draw_rect(Rect2(origin + Vector2(32 - tw, i * 4), Vector2(tw, 4)), grass_col)
+			var tw := float(2 + ((i + phase + 1) % 3) * 2)
+			draw_rect(Rect2(origin + Vector2(32.0 - tw - 2.0, i * 4), Vector2(2, 4)), shadow)
+			draw_rect(Rect2(origin + Vector2(32.0 - tw, i * 4), Vector2(tw, 4)), grass_col)
+
+	# Esquinas exteriores redondeadas (cuando 2 bordes adyacentes tocan césped)
+	if n_g and w_g:
+		draw_pixel_corner_mask(origin, "NW", grass_col, shadow)
+	if n_g and e_g:
+		draw_pixel_corner_mask(origin, "NE", grass_col, shadow)
+	if s_g and w_g:
+		draw_pixel_corner_mask(origin, "SW", grass_col, shadow)
+	if s_g and e_g:
+		draw_pixel_corner_mask(origin, "SE", grass_col, shadow)
+
+	# Esquinas interiores suaves (cuando el camino gira en L y solo la diagonal toca césped)
+	if not n_g and not w_g and nw_g:
+		draw_rect(Rect2(origin, Vector2(6, 4)), grass_col)
+		draw_rect(Rect2(origin + Vector2(0, 4), Vector2(4, 2)), grass_col)
+		draw_rect(Rect2(origin + Vector2(6, 0), Vector2(2, 4)), shadow)
+		draw_rect(Rect2(origin + Vector2(4, 4), Vector2(2, 2)), shadow)
+	if not n_g and not e_g and ne_g:
+		draw_rect(Rect2(origin + Vector2(26, 0), Vector2(6, 4)), grass_col)
+		draw_rect(Rect2(origin + Vector2(28, 4), Vector2(4, 2)), grass_col)
+		draw_rect(Rect2(origin + Vector2(24, 0), Vector2(2, 4)), shadow)
+		draw_rect(Rect2(origin + Vector2(26, 4), Vector2(2, 2)), shadow)
+	if not s_g and not w_g and sw_g:
+		draw_rect(Rect2(origin + Vector2(0, 28), Vector2(6, 4)), grass_col)
+		draw_rect(Rect2(origin + Vector2(0, 26), Vector2(4, 2)), grass_col)
+		draw_rect(Rect2(origin + Vector2(6, 28), Vector2(2, 4)), shadow)
+		draw_rect(Rect2(origin + Vector2(4, 26), Vector2(2, 2)), shadow)
+	if not s_g and not e_g and se_g:
+		draw_rect(Rect2(origin + Vector2(26, 28), Vector2(6, 4)), grass_col)
+		draw_rect(Rect2(origin + Vector2(28, 26), Vector2(4, 2)), grass_col)
+		draw_rect(Rect2(origin + Vector2(24, 28), Vector2(2, 4)), shadow)
+		draw_rect(Rect2(origin + Vector2(26, 26), Vector2(2, 2)), shadow)
 
 func draw_stone_stairs(origin: Vector2, direction: String) -> void:
 	draw_rect(Rect2(origin, Vector2(32, 32)), Color("7d838a"))
@@ -506,31 +604,201 @@ func draw_ramp_overlay(cell_x: int, cell_y: int, origin: Vector2, conn: Dictiona
 			draw_rect(Rect2(origin + Vector2(x, 4), Vector2(2, 24)), step_mark)
 
 func draw_cliff_edges(cell_x: int, cell_y: int, origin: Vector2, h: int) -> void:
+	# Composición de elevaciones en 4 capas sin huecos ni parches de color:
+	#  Capa 1: Superficie superior (ya dibujada con el césped del nivel h)
+	#  Capa 2: Contornos y bordes (labio iluminado + bordes laterales consistentes con el césped de nivel h)
+	#  Capa 3: Paredes laterales/verticales (cubren 100% el ancho de 32px y se curvan en las terminaciones)
+	#  Capa 4: Terminaciones inferiores (esquinas SW/SE con pared diagonal de tierra/roca sin dejar huecos)
 	var h_north := shire.elevation.get_height_at_tile(cell_x, cell_y - 1)
 	var h_south := shire.elevation.get_height_at_tile(cell_x, cell_y + 1)
 	var h_west := shire.elevation.get_height_at_tile(cell_x - 1, cell_y)
 	var h_east := shire.elevation.get_height_at_tile(cell_x + 1, cell_y)
-	if h_north > h and shire.elevation.get_connection_at_tile(cell_x, cell_y - 1).is_empty():
+	var h_nw := shire.elevation.get_height_at_tile(cell_x - 1, cell_y - 1)
+	var h_ne := shire.elevation.get_height_at_tile(cell_x + 1, cell_y - 1)
+	var h_sw := shire.elevation.get_height_at_tile(cell_x - 1, cell_y + 1)
+	var h_se := shire.elevation.get_height_at_tile(cell_x + 1, cell_y + 1)
+
+	var north_drop := h_north > h and shire.elevation.get_connection_at_tile(cell_x, cell_y - 1).is_empty()
+	var south_edge := h_south < h and shire.elevation.get_connection_at_tile(cell_x, cell_y + 1).is_empty()
+	var west_edge := h_west < h and shire.elevation.get_connection_at_tile(cell_x - 1, cell_y).is_empty()
+	var east_edge := h_east < h and shire.elevation.get_connection_at_tile(cell_x + 1, cell_y).is_empty()
+	var north_edge := h_north < h and shire.elevation.get_connection_at_tile(cell_x, cell_y - 1).is_empty()
+
+	var surf_grass: Color = ELEVATION_GRASS_COLORS[clampi(h, 0, 3)]
+	var grass_rim_light := surf_grass.lightened(0.22)
+	var grass_rim_dark := surf_grass.darkened(0.42)
+	var wall_top_dark := Color("5c4324")
+	var wall_mid := Color("8c693e")
+	var wall_light := Color("a67f4d")
+	var wall_shadow := Color("6b4e2b")
+	var wall_base_dark := Color("3d2c17")
+
+	# =========================================================================
+	# CAPA 3 & 4 (DESDE EL TILE INFERIOR): PARED VERTICAL COMPLETA + TERMINACIONES LATERALES
+	# =========================================================================
+	if north_drop:
 		var wall_h := minf(26.0, float(h_north - h) * 14.0)
-		draw_rect(Rect2(origin, Vector2(32, 3)), Color("2a591c"))
-		draw_rect(Rect2(origin + Vector2(0, 3), Vector2(32, wall_h - 3)), Color("8c693e"))
-		for x in range(2, 30, 10):
-			draw_rect(Rect2(origin + Vector2(x, 5), Vector2(7, wall_h - 7)), Color("a67f4d"))
-		if shire.tile_at(cell_x, cell_y) == ShireMap.Tile.WATER:
-			# Espuma de agua y sombra ribereña en la base del acantilado que cae al lago
-			draw_rect(Rect2(origin + Vector2(0, wall_h), Vector2(32, 3)), Color("a9def9"))
-			draw_rect(Rect2(origin + Vector2(0, wall_h + 3), Vector2(32, 4)), Color(0.05, 0.14, 0.25, 0.40))
+		var is_left_end := h_nw < h_north
+		var is_right_end := h_ne < h_north
+		var is_water_below := shire.tile_at(cell_x, cell_y) == ShireMap.Tile.WATER
+
+		# Dibujamos la pared fila por fila (de 2 en 2 px) para que en los extremos
+		# izquierdo/derecho la pared forme una curva orgánica cerrada hacia abajo (sin recortes rectos ni huecos)
+		var rows_count := int(wall_h / 2.0)
+		for row_i in range(rows_count):
+			var y_pos := float(row_i * 2)
+			var taper_l := 0.0
+			var taper_r := 0.0
+			# Curvatura suave solo en la parte baja de las terminaciones de pared (estética ALTTP)
+			if is_left_end and row_i >= rows_count - 3:
+				taper_l = float((row_i - (rows_count - 4)) * 2)
+			if is_right_end and row_i >= rows_count - 3:
+				taper_r = float((row_i - (rows_count - 4)) * 2)
+
+			var x_start := taper_l
+			var seg_w := 32.0 - taper_l - taper_r
+			if seg_w <= 0.0:
+				continue
+
+			var band_col := wall_mid
+			if row_i == 0:
+				band_col = grass_rim_dark
+			elif row_i == 1:
+				band_col = wall_top_dark
+			elif row_i == rows_count - 1:
+				band_col = wall_base_dark
+
+			draw_rect(Rect2(origin + Vector2(x_start, y_pos), Vector2(seg_w, 2.0)), band_col)
+
+			# Bordes laterales oscuros cerrando limpiamente las terminaciones izquierda y derecha
+			if is_left_end:
+				draw_rect(Rect2(origin + Vector2(x_start, y_pos), Vector2(2.0, 2.0)), wall_top_dark)
+			if is_right_end:
+				draw_rect(Rect2(origin + Vector2(x_start + seg_w - 2.0, y_pos), Vector2(2.0, 2.0)), wall_top_dark)
+
+		# Estratos de piedra/tierra dentro de la pared vertical
+		var rock_shift := (cell_x % 2) * 3
+		var rx_min := 4 if is_left_end else 2
+		var rx_max := 24 if is_right_end else 26
+		for x in range(rx_min + rock_shift, rx_max, 10):
+			draw_rect(Rect2(origin + Vector2(x, 6), Vector2(6, maxf(2.0, wall_h - 10.0))), wall_light)
+			draw_rect(Rect2(origin + Vector2(x + 6, 5), Vector2(2, maxf(2.0, wall_h - 8.0))), wall_shadow)
+
+		# Musgo sutil colgando del borde superior de la pared
+		if (cell_x * 7 + cell_y * 11) % 3 == 0:
+			draw_rect(Rect2(origin + Vector2(11, 2), Vector2(6, 4)), surf_grass.darkened(0.2))
+
+		# Sombra o espuma ribereña en la base de la pared
+		var base_l := 4.0 if is_left_end else 0.0
+		var base_w := 32.0 - base_l - (4.0 if is_right_end else 0.0)
+		if is_water_below:
+			draw_rect(Rect2(origin + Vector2(base_l, wall_h), Vector2(base_w, 3)), Color("a9def9"))
+			draw_rect(Rect2(origin + Vector2(base_l, wall_h + 3), Vector2(base_w, 4)), Color(0.05, 0.14, 0.25, 0.40))
 		else:
-			draw_rect(Rect2(origin + Vector2(0, wall_h), Vector2(32, 5)), Color(0.05, 0.09, 0.04, 0.28))
-	if h_south < h and shire.elevation.get_connection_at_tile(cell_x, cell_y + 1).is_empty():
-		draw_rect(Rect2(origin + Vector2(0, 27), Vector2(32, 2)), Color("9be060"))
-		draw_rect(Rect2(origin + Vector2(0, 29), Vector2(32, 3)), Color("2d5c1e"))
-	if h_west < h and shire.elevation.get_connection_at_tile(cell_x - 1, cell_y).is_empty():
-		draw_rect(Rect2(origin, Vector2(4, 32)), Color("6b4e2b"))
-		draw_rect(Rect2(origin + Vector2(4, 0), Vector2(2, 32)), Color("9be060"))
-	if h_east < h and shire.elevation.get_connection_at_tile(cell_x + 1, cell_y).is_empty():
-		draw_rect(Rect2(origin + Vector2(28, 0), Vector2(4, 32)), Color("6b4e2b"))
-		draw_rect(Rect2(origin + Vector2(26, 0), Vector2(2, 32)), Color("3c6e26"))
+			draw_rect(Rect2(origin + Vector2(base_l, wall_h), Vector2(base_w, 4)), Color(0.05, 0.09, 0.04, 0.26))
+
+	# =========================================================================
+	# CAPA 2: BORDES Y CONTORNOS DE LA SUPERFICIE SUPERIOR (TONALIDAD 100% CONSISTENTE)
+	# =========================================================================
+	if south_edge:
+		draw_rect(Rect2(origin + Vector2(0, 26), Vector2(32, 3)), grass_rim_light)
+		draw_rect(Rect2(origin + Vector2(0, 29), Vector2(32, 3)), grass_rim_dark)
+	if north_edge:
+		draw_rect(Rect2(origin, Vector2(32, 3)), grass_rim_dark)
+		draw_rect(Rect2(origin + Vector2(0, 3), Vector2(32, 2)), grass_rim_light)
+	if west_edge:
+		draw_rect(Rect2(origin, Vector2(4, 32)), wall_shadow)
+		draw_rect(Rect2(origin + Vector2(4, 0), Vector2(2, 32)), grass_rim_light)
+	if east_edge:
+		draw_rect(Rect2(origin + Vector2(28, 0), Vector2(4, 32)), wall_shadow)
+		draw_rect(Rect2(origin + Vector2(26, 0), Vector2(2, 32)), grass_rim_dark)
+
+	# =========================================================================
+	# CAPA 4 (ESQUINAS): PIEZAS ESPECÍFICAS PARA CADA ESQUINA SIN HUECOS NI PARCHES
+	# =========================================================================
+	# Esquinas SUPERIORES (NW / NE): usan exactamente el color real del tile vecino inferior
+	if north_edge and west_edge:
+		var outer_nw := get_neighbor_surface_color(cell_x - 1, cell_y - 1, h_nw)
+		draw_pixel_corner_mask(origin, "NW", outer_nw, wall_top_dark)
+		# Continuidad del labio verde del nivel actual a lo largo de la curva
+		draw_rect(Rect2(origin + Vector2(10, 2), Vector2(2, 2)), grass_rim_light)
+		draw_rect(Rect2(origin + Vector2(8, 4), Vector2(2, 2)), grass_rim_light)
+		draw_rect(Rect2(origin + Vector2(6, 6), Vector2(2, 2)), grass_rim_light)
+		draw_rect(Rect2(origin + Vector2(4, 8), Vector2(2, 2)), grass_rim_light)
+	if north_edge and east_edge:
+		var outer_ne := get_neighbor_surface_color(cell_x + 1, cell_y - 1, h_ne)
+		draw_pixel_corner_mask(origin, "NE", outer_ne, wall_top_dark)
+		draw_rect(Rect2(origin + Vector2(20, 2), Vector2(2, 2)), grass_rim_dark)
+		draw_rect(Rect2(origin + Vector2(22, 4), Vector2(2, 2)), grass_rim_dark)
+		draw_rect(Rect2(origin + Vector2(24, 6), Vector2(2, 2)), grass_rim_dark)
+		draw_rect(Rect2(origin + Vector2(26, 8), Vector2(2, 2)), grass_rim_dark)
+
+	# Esquinas INFERIORES (SW / SE): NO recortan hacia césped (eso creaba el hueco);
+	# en su lugar construyen una esquina de pared lateral/diagonal de tierra/roca que
+	# empalma sin fisuras con el borde lateral (west/east) y la pared vertical del tile inferior.
+	if south_edge and west_edge:
+		var outer_sw := get_neighbor_surface_color(cell_x - 1, cell_y, h_west)
+		draw_lower_cliff_corner(origin, "SW", outer_sw, wall_mid, wall_top_dark, grass_rim_light, grass_rim_dark)
+	if south_edge and east_edge:
+		var outer_se := get_neighbor_surface_color(cell_x + 1, cell_y, h_east)
+		draw_lower_cliff_corner(origin, "SE", outer_se, wall_mid, wall_top_dark, grass_rim_light, grass_rim_dark)
+
+	# Esquinas INTERIORES (cóncavas) cuando la plataforma gira en L:
+	if not south_edge and not west_edge and h_sw < h:
+		draw_rect(Rect2(origin + Vector2(0, 26), Vector2(4, 6)), wall_shadow)
+		draw_rect(Rect2(origin + Vector2(4, 26), Vector2(2, 6)), grass_rim_light)
+		draw_rect(Rect2(origin + Vector2(0, 24), Vector2(6, 2)), grass_rim_dark)
+	if not south_edge and not east_edge and h_se < h:
+		draw_rect(Rect2(origin + Vector2(28, 26), Vector2(4, 6)), wall_shadow)
+		draw_rect(Rect2(origin + Vector2(26, 26), Vector2(2, 6)), grass_rim_dark)
+		draw_rect(Rect2(origin + Vector2(26, 24), Vector2(6, 2)), grass_rim_dark)
+	if not north_edge and not west_edge and h_nw < h:
+		draw_rect(Rect2(origin, Vector2(4, 4)), wall_shadow)
+		draw_rect(Rect2(origin + Vector2(4, 0), Vector2(2, 6)), grass_rim_light)
+	if not north_edge and not east_edge and h_ne < h:
+		draw_rect(Rect2(origin + Vector2(28, 0), Vector2(4, 4)), wall_shadow)
+		draw_rect(Rect2(origin + Vector2(26, 0), Vector2(2, 6)), grass_rim_dark)
+
+func get_neighbor_surface_color(nx: int, ny: int, nh: int) -> Color:
+	# Devuelve el color exacto del terreno vecino real (agua, camino o césped de su altura real)
+	var t := shire.tile_at(nx, ny)
+	if t == ShireMap.Tile.WATER:
+		return Color("235789")
+	if t == ShireMap.Tile.DIRT_PATH:
+		return Color("e8b55a")
+	if t == ShireMap.Tile.DARK_FOREST:
+		return Color("2d5e29")
+	return ELEVATION_GRASS_COLORS[clampi(nh, 0, 3)]
+
+func draw_lower_cliff_corner(origin: Vector2, corner: String, outer_col: Color, wall_col: Color, rim_col: Color, grass_hi: Color, grass_lo: Color) -> void:
+	# Pieza específica de esquina inferior (SW / SE) que cierra la unión entre el borde lateral
+	# y la pared vertical inferior mediante una transición diagonal de tierra/roca sin dejar huecos.
+	# Cada fila (desde y=22 hasta y=30) ensancha la pared lateral hacia el interior y redondea
+	# suavemente solo los 2-4 píxeles más exteriores, manteniendo la pared sólida hasta y=32.
+	var rows := [
+		[22.0, 0.0, 4.0],
+		[24.0, 0.0, 6.0],
+		[26.0, 2.0, 8.0],
+		[28.0, 2.0, 8.0],
+		[30.0, 4.0, 8.0],
+	]
+	for entry in rows:
+		var y_pos: float = entry[0]
+		var outer_w: float = entry[1]
+		var wall_end: float = entry[2]
+		if corner == "SW":
+			if outer_w > 0.0:
+				draw_rect(Rect2(origin + Vector2(0.0, y_pos), Vector2(outer_w, 2.0)), outer_col)
+			draw_rect(Rect2(origin + Vector2(outer_w, y_pos), Vector2(2.0, 2.0)), rim_col)
+			draw_rect(Rect2(origin + Vector2(outer_w + 2.0, y_pos), Vector2(maxf(2.0, wall_end - outer_w - 2.0), 2.0)), wall_col)
+			draw_rect(Rect2(origin + Vector2(wall_end, y_pos), Vector2(2.0, 2.0)), grass_hi if y_pos < 28.0 else grass_lo)
+		else:
+			if outer_w > 0.0:
+				draw_rect(Rect2(origin + Vector2(32.0 - outer_w, y_pos), Vector2(outer_w, 2.0)), outer_col)
+			draw_rect(Rect2(origin + Vector2(30.0 - outer_w, y_pos), Vector2(2.0, 2.0)), rim_col)
+			var w_span := maxf(2.0, wall_end - outer_w - 2.0)
+			draw_rect(Rect2(origin + Vector2(30.0 - outer_w - w_span, y_pos), Vector2(w_span, 2.0)), wall_col)
+			draw_rect(Rect2(origin + Vector2(30.0 - wall_end, y_pos), Vector2(2.0, 2.0)), grass_lo)
 
 func draw_elevation_debug(start_x: int, end_x: int, start_y: int, end_y: int) -> void:
 	var colors := [
