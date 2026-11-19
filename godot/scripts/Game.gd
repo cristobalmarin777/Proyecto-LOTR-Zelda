@@ -179,6 +179,10 @@ func spawn_authored_shire() -> void:
 		chest.opened = world.opened_story_chests.has(chest.chest_id)
 		chest.queue_redraw()
 	for data in world.shire.signs:
+		var sc := int(data.get("col", 0))
+		var sr := int(data.get("row", 0))
+		if world.shire.tile_at(sc, sr) == ShireMap.Tile.WATER:
+			continue
 		var sign: ShireSignpost = SignScript.new()
 		y_sort_layer.add_child(sign)
 		sign.configure(data)
@@ -203,8 +207,19 @@ func resolve_player_attack(origin: Vector2, facing: Vector2, damage: int) -> voi
 		if displacement.length() <= 49.0 and displacement.normalized().dot(facing) > -0.15:
 			enemy.take_hit(damage, origin)
 			hit_count += 1
+	var cut_signs := 0
+	for node in get_tree().get_nodes_in_group("signposts"):
+		var sign: ShireSignpost = node as ShireSignpost
+		if sign == null or not sign.visible or sign.is_cut:
+			continue
+		var disp: Vector2 = sign.global_position - origin
+		if disp.length() <= 48.0 and disp.normalized().dot(facing) > -0.15:
+			if sign.cut(facing):
+				cut_signs += 1
 	if hit_count > 0:
 		hud.notify("Golpeas a %d enemigo%s." % [hit_count, "s" if hit_count != 1 else ""])
+	elif cut_signs > 0:
+		hud.notify("¡Has partido el cartel por la mitad!")
 
 func spawn_enemy(kind: String, position: Vector2, threat: int) -> void:
 	var enemy: MiddleEarthEnemy = EnemyScript.new()
@@ -224,10 +239,11 @@ func spawn_player_arrow() -> void:
 		hud.notify("No te quedan flechas.")
 		return
 	player.arrows -= 1
+	var dir := player.get_facing_vector()
 	var arrow: PlayerArrow = PlayerArrowScript.new()
 	arrow.z_index = 9
 	add_child(arrow)
-	arrow.setup(player.global_position + player.facing * 14.0, player.facing, 1, active_world)
+	arrow.setup(player.global_position + dir * 16.0, dir, 1, active_world)
 
 func spawn_elf(role: String, position: Vector2) -> void:
 	for node in get_tree().get_nodes_in_group("friendly_npcs"):
@@ -271,7 +287,10 @@ func interact() -> void:
 		return
 	var sign := nearby_sign()
 	if sign != null:
-		start_dialog("Cartel de La Comarca", [sign.text])
+		if sign.is_cut:
+			start_dialog("Cartel Partido", ["El cartel fue partido por la mitad de un tajo limpio. Ya no se puede leer."])
+		else:
+			start_dialog("Cartel de La Comarca", [sign.text])
 		return
 	var building := nearby_building()
 	if building != null:
@@ -315,39 +334,67 @@ func interact_npc(npc: FriendlyNPC) -> void:
 		player.hp = player.max_hp
 	start_dialog(npc.character_name, npc.dialog_pages)
 
+func directional_score(target_pos: Vector2, max_range: float) -> float:
+	# Prioriza el objetivo que se encuentra frente a la dirección hacia la que mira el jugador
+	var dist := player.global_position.distance_to(target_pos)
+	if dist > max_range:
+		return INF
+	var to_target := (target_pos - player.global_position).normalized()
+	var facing_dot := to_target.dot(player.get_facing_vector())
+	# Bonificación clara si el objetivo está en el cono frontal del jugador
+	return dist - facing_dot * 22.0
+
 func nearby_npc() -> FriendlyNPC:
 	var closest: FriendlyNPC
-	var closest_distance := 54.0
+	var best_score := INF
 	for node in get_tree().get_nodes_in_group("friendly_npcs"):
 		var npc: FriendlyNPC = node as FriendlyNPC
 		if npc == null or not npc.visible:
 			continue
-		var distance: float = npc.global_position.distance_to(player.global_position)
-		if distance < closest_distance:
+		var score := directional_score(npc.global_position, 56.0)
+		if score < best_score:
 			closest = npc
-			closest_distance = distance
+			best_score = score
 	return closest
 
 func nearby_story_chest() -> TreasureChest:
+	var closest: TreasureChest
+	var best_score := INF
 	for node in get_tree().get_nodes_in_group("chests"):
 		var chest: TreasureChest = node as TreasureChest
-		if chest != null and chest.visible and not chest.opened and chest.global_position.distance_to(player.global_position) < 43.0:
-			return chest
-	return null
+		if chest == null or not chest.visible or chest.opened:
+			continue
+		var score := directional_score(chest.global_position, 46.0)
+		if score < best_score:
+			closest = chest
+			best_score = score
+	return closest
 
 func nearby_sign() -> ShireSignpost:
+	var closest: ShireSignpost
+	var best_score := INF
 	for node in get_tree().get_nodes_in_group("signposts"):
 		var sign: ShireSignpost = node as ShireSignpost
-		if sign != null and sign.visible and sign.global_position.distance_to(player.global_position) < 43.0:
-			return sign
-	return null
+		if sign == null or not sign.visible or sign.is_cut:
+			continue
+		var score := directional_score(sign.global_position, 46.0)
+		if score < best_score:
+			closest = sign
+			best_score = score
+	return closest
 
 func nearby_building() -> HobbitonBuilding:
+	var closest: HobbitonBuilding
+	var best_score := INF
 	for node in get_tree().get_nodes_in_group("hobbiton_buildings"):
 		var b: HobbitonBuilding = node as HobbitonBuilding
-		if b != null and b.visible and b.has_door and b.world_door_position().distance_to(player.global_position) < 42.0:
-			return b
-	return null
+		if b == null or not b.visible or not b.has_door:
+			continue
+		var score := directional_score(b.world_door_position(), 44.0)
+		if score < best_score:
+			closest = b
+			best_score = score
+	return closest
 
 func nearby_hint() -> String:
 	if in_dungeon and player.global_position.distance_to(dungeon.exit_position()) < 45.0:

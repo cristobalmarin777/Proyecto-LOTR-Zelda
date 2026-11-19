@@ -60,11 +60,14 @@ func build_level() -> void:
 		grid[row][0] = Tile.TREE
 		grid[row][COLS - 1] = Tile.TREE
 
-	# 1. NIVELES DE ELEVACIÓN DE HOBBITON (0 = Valle/Lago, 1 = Terrazas/Fiesta/Granjas, 2 = Bagshot Row, 3 = Cumbre Bag End)
-	elevation.set_height_rect(3, 10, 27, 57, 1)
-	elevation.set_height_rect(41, 26, 51, 53, 1)
+	# 1. NIVELES DE ELEVACIÓN DE HOBBITON (0 = Valle/Lago El Agua, 1 = Terrazas/Fiesta/Granjas, 2 = Bagshot Row, 3 = Cumbre Bag End)
+	# Nivel 1 Norte se extiende hasta la orilla del Lago El Agua (el agua en Nivel 0 actúa como límite natural del nivel superior)
+	elevation.set_height_rect(3, 10, 32, 57, 1)
+	# Nivel 1 Sur (Meseta de Granjas Rurales) linda por el norte directamente con la orilla sur del Lago El Agua
+	elevation.set_height_rect(39, 26, 51, 53, 1)
 	elevation.set_height_rect(3, 15, 16, 56, 2)
-	elevation.set_height_rect(2, 28, 10, 42, 3)
+	# Nivel 3 (Cumbre de Bolsón Cerrado): ampliado 1 columna a la derecha (cols 27..43) para calzar exacto con las rampas de 3 tiles
+	elevation.set_height_rect(2, 27, 10, 43, 3)
 
 	# 2. RAMPAS Y PUENTES (Todas las conexiones entre niveles usan textura de camino y anchura exacta de 3 tiles para calzar con los caminos)
 	elevation.add_connection({"id": "ramp_bag_end_west", "type": "ramp", "col": 27, "row": 10, "width_tiles": 3, "height_tiles": 2, "start_height": 2, "end_height": 3, "direction": "north"})
@@ -72,15 +75,20 @@ func build_level() -> void:
 	elevation.add_connection({"id": "ramp_bagshot_south", "type": "ramp", "col": 23, "row": 16, "width_tiles": 3, "height_tiles": 2, "start_height": 1, "end_height": 2, "direction": "north"})
 	elevation.add_connection({"id": "ramp_mid_hill", "type": "ramp", "col": 33, "row": 16, "width_tiles": 3, "height_tiles": 2, "start_height": 1, "end_height": 2, "direction": "north"})
 	elevation.add_connection({"id": "ramp_east_hills", "type": "ramp", "col": 49, "row": 16, "width_tiles": 3, "height_tiles": 2, "start_height": 1, "end_height": 2, "direction": "north"})
+	# Rampa del Molino y Puente (baja de Nivel 1 -> Nivel 0 hacia el Molino y Puente de Piedra)
 	elevation.add_connection({"id": "ramp_to_mill", "type": "ramp", "col": 22, "row": 27, "width_tiles": 3, "height_tiles": 2, "start_height": 0, "end_height": 1, "direction": "north"})
+	# Zona ribereña del Viejo Molino y acceso al Puente de Piedra en Nivel 0
+	elevation.set_height_rect(28, 10, 34, 25, 0)
+	# Rampa oriental hacia el Puente del Bosque Viejo (baja de Nivel 1 -> Nivel 0)
 	elevation.add_connection({"id": "ramp_east_bridge", "type": "ramp", "col": 52, "row": 27, "width_tiles": 3, "height_tiles": 2, "start_height": 0, "end_height": 1, "direction": "north"})
+	elevation.set_height_rect(28, 52, 34, 59, 0)
 	elevation.add_connection({"id": "ramp_rural_west", "type": "ramp", "col": 25, "row": 42, "width_tiles": 2, "height_tiles": 3, "start_height": 0, "end_height": 1, "direction": "east"})
 	elevation.add_connection({"id": "ramp_rural_south", "type": "ramp", "col": 35, "row": 51, "width_tiles": 3, "height_tiles": 2, "start_height": 0, "end_height": 1, "direction": "north"})
 	elevation.add_connection({"id": "ramp_rural_east", "type": "ramp", "col": 53, "row": 42, "width_tiles": 2, "height_tiles": 3, "start_height": 0, "end_height": 1, "direction": "west"})
 	elevation.add_connection({"id": "bridge_stone", "type": "bridge", "col": 22, "row": 32, "width_tiles": 3, "height_tiles": 7, "start_height": 0, "end_height": 0, "direction": "north"})
 	elevation.add_connection({"id": "bridge_east", "type": "bridge", "col": 57, "row": 31, "width_tiles": 2, "height_tiles": 7, "start_height": 0, "end_height": 0, "direction": "north"})
 
-	# 3. BOSQUE VIEJO AL ESTE Y LAGO "EL AGUA"
+	# 3. BOSQUE VIEJO AL ESTE Y LAGO "EL AGUA" (Siempre Nivel 0; recorta el borde de Nivel 1 y sirve de límite natural)
 	for row in range(1, ROWS - 1):
 		for col in range(63, COLS - 1):
 			var jitter := roundi(sin(float(row) * 0.4) * 2.0)
@@ -92,6 +100,8 @@ func build_level() -> void:
 		var half_w := (3.5 + sin(float(col - 27) * 0.14) * 1.6) if (col >= 27 and col <= 49) else 1.8
 		for row in range(maxi(2, floori(center_row - half_w)), mini(ROWS - 3, ceili(center_row + half_w)) + 1):
 			grid[row][col] = Tile.WATER
+			# El agua siempre permanece en Nivel 0, formando un acantilado ribereño contra las terrazas de Nivel 1
+			elevation.height_grid[row][col] = 0
 
 	# 4. CAMINOS PRINCIPALES (3 tiles de ancho, calzando exactamente con el ancho de cada rampa)
 	paint_rect(8, 27, 10, 42, Tile.DIRT_PATH)
@@ -263,11 +273,23 @@ func build_story_content() -> void:
 		{"id": "chest_orc_camp", "col": 74, "row": 41, "reward": "sword_temper", "title": "Hoja Élfica Templada", "description": "Una mejora de filo o una nueva hoja para tu viaje."},
 	]
 	signs = [
-		{"col": 32, "row": 9, "text": "CUMBRE DE LA COLINA (Nivel 3) · Oeste: Escaleras a Bolsón de Tirada (Niv. 2) · Este: Rampa · [H] Debug Alturas"},
+		{"col": 32, "row": 9, "text": "CUMBRE DE LA COLINA (Nivel 3) · Oeste: Rampa a Bolsón de Tirada (Niv. 2) · Este: Rampa · [H] Debug Alturas"},
 		{"col": 25, "row": 29, "text": "Oeste: Viejo Molino y Forja de Haldor · Sur: Puente de Piedra -> Posada El Dragón Verde (Nivel 0)"},
-		{"col": 35, "row": 44, "text": "MESETA DE GRANJAS RURALES (Nivel 1) · Sur: Escaleras a Eriador · Este: Rampa al Bosque Viejo"},
-		{"col": 60, "row": 37, "text": "PELIGRO: Frontera del Bosque Viejo. Más allá acechan los Orcos y el Capitán Uruk-hai."},
+		{"col": 35, "row": 44, "text": "MESETA DE GRANJAS RURALES (Nivel 1) · Sur: Rampa a Eriador · Este: Rampa al Bosque Viejo"},
+		{"col": 60, "row": 39, "text": "PELIGRO: Frontera del Bosque Viejo. Más allá acechan los Orcos y el Capitán Uruk-hai."},
 	]
+	# Garantizar que ningún cartel se genere sobre agua ni sobre tiles sólidos
+	var valid_signs: Array = []
+	for s in signs:
+		var sc := int(s.get("col", 0))
+		var sr := int(s.get("row", 0))
+		if tile_at(sc, sr) == Tile.WATER or tile_is_solid(tile_at(sc, sr)):
+			var relocated := find_nearest_dry_tile(sc, sr)
+			s["col"] = relocated.x
+			s["row"] = relocated.y
+		if tile_at(int(s["col"]), int(s["row"])) != Tile.WATER:
+			valid_signs.append(s)
+	signs = valid_signs
 	enemy_spawns = [
 		{"type": "spider", "col": 65, "row": 14}, {"type": "orc", "col": 68, "row": 19},
 		{"type": "spider", "col": 64, "row": 27}, {"type": "orc", "col": 66, "row": 35},
@@ -301,6 +323,16 @@ func tile_at(column: int, row: int) -> int:
 	if column < 0 or column >= COLS or row < 0 or row >= ROWS:
 		return Tile.GRASS
 	return int(grid[row][column])
+
+func find_nearest_dry_tile(col: int, row: int) -> Vector2i:
+	for radius in range(1, 8):
+		for dr in range(-radius, radius + 1):
+			for dc in range(-radius, radius + 1):
+				var nc := col + dc
+				var nr := row + dr
+				if has_inner_cell(nc, nr) and not tile_is_solid(tile_at(nc, nr)):
+					return Vector2i(nc, nr)
+	return Vector2i(col, row)
 
 func tile_is_solid(tile: int) -> bool:
 	return tile in [Tile.WATER, Tile.TREE, Tile.FENCE, Tile.ROCK, Tile.HOBBIT_WALL, Tile.MILL_BASE]

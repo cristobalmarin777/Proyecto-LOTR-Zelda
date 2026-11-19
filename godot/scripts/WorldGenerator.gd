@@ -96,6 +96,37 @@ func get_height_at_tile(cell_x: int, cell_y: int) -> int:
 		return shire.elevation.get_height_at_tile(cell_x, cell_y)
 	return 0
 
+func get_connection_at_pixel(world_position: Vector2) -> Dictionary:
+	var cell_x := floori(world_position.x / TILE_SIZE)
+	var cell_y := floori(world_position.y / TILE_SIZE)
+	if shire.has_inner_cell(cell_x, cell_y):
+		return shire.elevation.get_connection_at_tile(cell_x, cell_y)
+	return {}
+
+func is_signpost_blocked(world_position: Vector2) -> bool:
+	var tree := get_tree()
+	if tree == null:
+		return false
+	for node in tree.get_nodes_in_group("signposts"):
+		var sign: ShireSignpost = node as ShireSignpost
+		if sign != null and sign.blocks_position(world_position):
+			return true
+	return false
+
+func is_solid_only(world_position: Vector2) -> bool:
+	# Comprueba si un destino tiene agua, árbol, roca, edificio o cartel intacto (ignorando diferencia de altura)
+	if is_signpost_blocked(world_position):
+		return true
+	var cell_x := floori(world_position.x / TILE_SIZE)
+	var cell_y := floori(world_position.y / TILE_SIZE)
+	if shire.has_inner_cell(cell_x, cell_y):
+		if shire.tile_is_solid(shire.tile_at(cell_x, cell_y)):
+			return true
+		if shire.is_building_blocked(world_position, 10.0, 10.0):
+			return true
+		return false
+	return is_blocked(world_position)
+
 func get_interpolated_elevation(world_position: Vector2) -> float:
 	var cell_x := floori(world_position.x / TILE_SIZE)
 	var cell_y := floori(world_position.y / TILE_SIZE)
@@ -104,6 +135,8 @@ func get_interpolated_elevation(world_position: Vector2) -> float:
 	return 0.0
 
 func is_blocked(world_position: Vector2, current_height: float = -999.0) -> bool:
+	if is_signpost_blocked(world_position):
+		return true
 	var cell_x := floori(world_position.x / TILE_SIZE)
 	var cell_y := floori(world_position.y / TILE_SIZE)
 	if shire.has_inner_cell(cell_x, cell_y):
@@ -483,7 +516,12 @@ func draw_cliff_edges(cell_x: int, cell_y: int, origin: Vector2, h: int) -> void
 		draw_rect(Rect2(origin + Vector2(0, 3), Vector2(32, wall_h - 3)), Color("8c693e"))
 		for x in range(2, 30, 10):
 			draw_rect(Rect2(origin + Vector2(x, 5), Vector2(7, wall_h - 7)), Color("a67f4d"))
-		draw_rect(Rect2(origin + Vector2(0, wall_h), Vector2(32, 5)), Color(0.05, 0.09, 0.04, 0.28))
+		if shire.tile_at(cell_x, cell_y) == ShireMap.Tile.WATER:
+			# Espuma de agua y sombra ribereña en la base del acantilado que cae al lago
+			draw_rect(Rect2(origin + Vector2(0, wall_h), Vector2(32, 3)), Color("a9def9"))
+			draw_rect(Rect2(origin + Vector2(0, wall_h + 3), Vector2(32, 4)), Color(0.05, 0.14, 0.25, 0.40))
+		else:
+			draw_rect(Rect2(origin + Vector2(0, wall_h), Vector2(32, 5)), Color(0.05, 0.09, 0.04, 0.28))
 	if h_south < h and shire.elevation.get_connection_at_tile(cell_x, cell_y + 1).is_empty():
 		draw_rect(Rect2(origin + Vector2(0, 27), Vector2(32, 2)), Color("9be060"))
 		draw_rect(Rect2(origin + Vector2(0, 29), Vector2(32, 3)), Color("2d5c1e"))
