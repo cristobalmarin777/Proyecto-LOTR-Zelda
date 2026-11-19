@@ -32,9 +32,12 @@ var attack_cooldown := 0.0
 var is_moving := false
 var orcs_nearby := false
 var walk_time := 0.0
+var elevation := 3.0
 
 func setup(world_ref: MiddleEarthWorld) -> void:
 	world = world_ref
+	if world != null and world.has_method("get_interpolated_elevation"):
+		elevation = world.get_interpolated_elevation(global_position)
 	queue_redraw()
 
 func _physics_process(delta: float) -> void:
@@ -50,9 +53,18 @@ func _physics_process(delta: float) -> void:
 	if is_moving:
 		walk_time += delta * 12.0
 		facing = input_direction
-		var desired := global_position + input_direction * move_speed * delta
-		if world == null or not world.is_blocked(desired):
-			global_position = desired
+		# Resolución independiente por eje (permite deslizarse paralelamente a un acantilado)
+		var step := input_direction * move_speed * delta
+		if not is_zero_approx(step.x):
+			var next_x := global_position + Vector2(step.x, 0.0)
+			if world == null or not world.is_blocked(next_x, elevation):
+				global_position = next_x
+		if not is_zero_approx(step.y):
+			var next_y := global_position + Vector2(0.0, step.y)
+			if world == null or not world.is_blocked(next_y, elevation):
+				global_position = next_y
+		if world != null and world.has_method("get_interpolated_elevation"):
+			elevation = world.get_interpolated_elevation(global_position)
 	queue_redraw()
 
 func read_movement() -> Vector2:

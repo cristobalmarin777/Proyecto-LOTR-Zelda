@@ -44,7 +44,8 @@ func _draw() -> void:
 	draw_string(font, Vector2(620, 22), "DEF %d" % player.armor_defense(), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("d7f3e1"))
 	draw_armor_gauge(Vector2(699, 27), player.armor_progress(), player.armor_defense() > 0)
 	var region: String = str(game.active_world.biome_display_name(game.active_world.biome_at_world(player.global_position)))
-	draw_string(font, Vector2(944, 20), "REGION: %s" % region, HORIZONTAL_ALIGNMENT_RIGHT, -1, 12, Color("ffd866"))
+	draw_string(font, Vector2(944, 20), "REGION: %s · ALTURA N%d" % [region, roundi(player.elevation)], HORIZONTAL_ALIGNMENT_RIGHT, -1, 12, Color("ffd866"))
+	draw_string(font, Vector2(944, 40), "[M] Mapa · [H] Debug Alturas", HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color("9ad972"))
 	draw_quest_panel(font)
 	draw_minimap(font)
 	if not str(game.interaction_hint).is_empty() and not map_expanded:

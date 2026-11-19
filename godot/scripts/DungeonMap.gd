@@ -48,7 +48,7 @@ func biome_display_name(biome: String) -> String:
 func darkness_at(_world_position: Vector2) -> float:
 	return interior_darkness
 
-func is_blocked(world_position: Vector2) -> bool:
+func is_blocked(world_position: Vector2, _current_height: float = -999.0) -> bool:
 	var column := floori(world_position.x / TILE_SIZE)
 	var row := floori(world_position.y / TILE_SIZE)
 	return ShireMap.Tile.ROCK == tile_at(column, row)

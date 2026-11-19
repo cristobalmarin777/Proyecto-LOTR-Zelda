@@ -11,9 +11,11 @@ const PlayerScript := preload("res://scripts/Player.gd")
 const WorldScript := preload("res://scripts/WorldGenerator.gd")
 const OverlayScript := preload("res://scripts/DarknessOverlay.gd")
 const HUDScript := preload("res://scripts/HUD.gd")
+const BuildingScript := preload("res://scripts/HobbitonBuilding.gd")
 
 var world: MiddleEarthWorld
 var active_world: MiddleEarthWorld
+var y_sort_layer: Node2D
 var player: MiddleEarthPlayer
 var darkness: DarknessOverlay
 var hud: MiddleEarthHUD
@@ -40,10 +42,13 @@ func _ready() -> void:
 	world.z_index = 0
 	add_child(world)
 	active_world = world
+	y_sort_layer = Node2D.new()
+	y_sort_layer.z_index = 3
+	y_sort_layer.y_sort_enabled = true
+	add_child(y_sort_layer)
 	player = PlayerScript.new()
-	player.z_index = 10
-	player.global_position = Vector2(6.5 * 32.0, 6.5 * 32.0)
-	add_child(player)
+	player.global_position = world.shire.spawn_position
+	y_sort_layer.add_child(player)
 	player.setup(active_world)
 	active_world.bind_player(player)
 	world.enemy_requested.connect(spawn_enemy)
@@ -69,7 +74,7 @@ func _ready() -> void:
 	load_game()
 	spawn_authored_shire()
 	world.reveal_current_atlas()
-	hud.notify("WASD/Flechas: mover · ESPACIO: atacar · E: interactuar · I: inventario · M: mapa")
+	hud.notify("WASD: mover · ESPACIO: atacar · E: interactuar · M: mapa · H: debug alturas")
 
 func _process(_delta: float) -> void:
 	if player == null:
@@ -133,6 +138,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_M:
 			hud.map_expanded = not hud.map_expanded
 			player.input_locked = hud.map_expanded
+		KEY_H:
+			world.debug_elevation_mode = not world.debug_elevation_mode
+			hud.notify("Debug Elevaciones [H]: %s" % ("ACTIVADO" if world.debug_elevation_mode else "DESACTIVADO"))
+			world.queue_redraw()
 		KEY_Q:
 			use_active_item()
 		KEY_1:
@@ -155,22 +164,23 @@ func toggle_fullscreen() -> void:
 		hud.notify("Pantalla completa activada.")
 
 func spawn_authored_shire() -> void:
+	for b_data in world.shire.buildings_data:
+		var building: HobbitonBuilding = BuildingScript.new()
+		y_sort_layer.add_child(building)
+		building.configure(b_data)
 	for data in world.shire.npcs:
 		var npc: FriendlyNPC = FriendlyScript.new()
-		npc.z_index = 3
-		add_child(npc)
+		y_sort_layer.add_child(npc)
 		npc.configure_authored(data)
 	for data in world.shire.chests:
 		var chest: TreasureChest = ChestScript.new()
-		chest.z_index = 3
-		add_child(chest)
+		y_sort_layer.add_child(chest)
 		chest.configure(data)
 		chest.opened = world.opened_story_chests.has(chest.chest_id)
 		chest.queue_redraw()
 	for data in world.shire.signs:
 		var sign: ShireSignpost = SignScript.new()
-		sign.z_index = 3
-		add_child(sign)
+		y_sort_layer.add_child(sign)
 		sign.configure(data)
 	for data in world.shire.enemy_spawns:
 		spawn_story_enemy(data)
@@ -263,6 +273,12 @@ func interact() -> void:
 	if sign != null:
 		start_dialog("Cartel de La Comarca", [sign.text])
 		return
+	var building := nearby_building()
+	if building != null:
+		if building.heals_player:
+			player.hp = player.max_hp
+		start_dialog("%s · %s" % [building.building_title, building.resident], building.dialog_pages)
+		return
 	if not in_dungeon:
 		var poi: Dictionary = nearby_poi()
 		if not poi.is_empty():
@@ -326,6 +342,13 @@ func nearby_sign() -> ShireSignpost:
 			return sign
 	return null
 
+func nearby_building() -> HobbitonBuilding:
+	for node in get_tree().get_nodes_in_group("hobbiton_buildings"):
+		var b: HobbitonBuilding = node as HobbitonBuilding
+		if b != null and b.visible and b.has_door and b.world_door_position().distance_to(player.global_position) < 42.0:
+			return b
+	return null
+
 func nearby_hint() -> String:
 	if in_dungeon and player.global_position.distance_to(dungeon.exit_position()) < 45.0:
 		return "[E] Regresar al exterior"
@@ -338,6 +361,9 @@ func nearby_hint() -> String:
 	var sign := nearby_sign()
 	if sign != null:
 		return "[E] Leer cartel"
+	var building := nearby_building()
+	if building != null:
+		return "[E] Inspeccionar %s" % building.building_title
 	if not in_dungeon:
 		var poi: Dictionary = nearby_poi()
 		if not poi.is_empty():
@@ -407,7 +433,7 @@ func leave_dungeon() -> void:
 func hide_overworld_gameplay(hide: bool) -> void:
 	if hide:
 		hidden_overworld_nodes.clear()
-		for group in ["friendly_npcs", "chests", "signposts", "enemies"]:
+		for group in ["friendly_npcs", "chests", "signposts", "enemies", "hobbiton_buildings"]:
 			for node in get_tree().get_nodes_in_group(group):
 				if node in dungeon_nodes:
 					continue
@@ -525,9 +551,10 @@ func use_active_item() -> void:
 func respawn_player() -> void:
 	player.hp = player.max_hp
 	player.coins = maxi(0, player.coins - 5)
-	player.global_position = Vector2(6.5 * 32.0, 6.5 * 32.0)
+	player.global_position = world.shire.spawn_position
+	player.elevation = world.get_interpolated_elevation(player.global_position)
 	player.input_locked = false
-	hud.notify("Has caído. Despiertas en Bolsón Cerrado y pierdes 5 monedas.")
+	hud.notify("Has caído. Despiertas en Bolsón Cerrado (Nivel 3) y pierdes 5 monedas.")
 
 func save_game() -> void:
 	if SaveGame.save_snapshot(player, world):
