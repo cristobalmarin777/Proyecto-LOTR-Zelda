@@ -301,7 +301,10 @@ func interact() -> void:
 	if not in_dungeon:
 		var poi: Dictionary = nearby_poi()
 		if not poi.is_empty():
-			enter_dungeon(poi)
+			if str(poi.get("kind", "")) in ["ORTHANC", "ORODRUIN", "BARAD_DUR"]:
+				interact_landmark(str(poi.kind))
+			else:
+				enter_dungeon(poi)
 			return
 	hud.notify("No hay nada con lo que interactuar cerca.")
 
@@ -414,8 +417,19 @@ func nearby_hint() -> String:
 	if not in_dungeon:
 		var poi: Dictionary = nearby_poi()
 		if not poi.is_empty():
+			if str(poi.get("kind", "")) in ["ORTHANC", "ORODRUIN", "BARAD_DUR"]:
+				return "[E] Explorar %s" % str(poi.kind).replace("_", " ")
 			return "[E] Entrar a %s" % ("Mina Enana" if str(poi.get("kind", "")) != "cave" else "Cueva Profunda")
 	return ""
+
+func interact_landmark(site: String) -> void:
+	match site:
+		"ORTHANC":
+			start_dialog("Orthanc · Isengard", ["La torre negra se alza en el centro del círculo de Isengard. Saruman aún no tiene un encuentro de jefe implementado."])
+		"ORODRUIN":
+			start_dialog("Orodruin · Monte del Destino", ["El calor del volcán atraviesa la ceniza. Sus laderas serán el centro de una misión futura."])
+		"BARAD_DUR":
+			start_dialog("Barad-dûr · Mordor", ["La fortaleza domina la meseta de Gorgoroth. Su interior y sus jefes se añadirán en otra etapa."])
 
 func nearby_poi() -> Dictionary:
 	var chunk: Vector2i = world.chunk_from_world(player.global_position)

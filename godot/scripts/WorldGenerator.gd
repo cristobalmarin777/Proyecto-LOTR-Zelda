@@ -13,6 +13,7 @@ const ATLAS_CHUNKS := 9
 const ACTIVE_CHUNK_RADIUS := 2
 
 var world_seed := 19771029
+var landmarks: LandmarkRegions = LandmarkRegions.new(world_seed)
 var player: MiddleEarthPlayer
 var shire: ShireMap = ShireMap.new()
 var sprite_bank: TerrainSpriteBank = TerrainSpriteBank.new()
@@ -62,6 +63,9 @@ func biome_at_world(world_position: Vector2) -> String:
 	return biome_at_cell(floori(world_position.x / TILE_SIZE), floori(world_position.y / TILE_SIZE))
 
 func biome_at_cell(cell_x: int, cell_y: int) -> String:
+	var landmark_biome := landmarks.region_at_chunk(Vector2i(floori(float(cell_x) / CHUNK_SIZE), floori(float(cell_y) / CHUNK_SIZE)))
+	if not landmark_biome.is_empty():
+		return landmark_biome
 	# La Comarca artesanal se reserva en el centro; las demás regiones forman
 	# franjas amplias y predecibles, con ruido para que sus fronteras no sean rectas.
 	var wobble := floori((hash01(floori(cell_x / 12.0), floori(cell_y / 12.0), 17) - 0.5) * 22.0)
@@ -86,12 +90,21 @@ func biome_display_name(biome: String) -> String:
 		"BREE_LAND": return "TIERRAS DE BREE"
 		"BARROW_DOWNS": return "QUEBRADAS DE LOS TÚMULOS"
 		"MISTY_FOOTHILLS": return "ESTRIBACIONES NUBLADAS"
+		"ISENGARD": return "ISENGARD"
+		"MORDOR_UDUN": return "MORDOR · UDÛN"
+		"MORDOR_GORGOROTH": return "MORDOR · GORGOROTH"
+		"MORDOR_NURN": return "MORDOR · NÚRN"
+		"MORDOR_SHADOW": return "MORDOR · TIERRAS DE SOMBRA"
 		_: return "ERIADOR SALVAJE"
 
 func darkness_at(world_position: Vector2) -> float:
 	match biome_at_world(world_position):
 		"OLD_FOREST": return 0.74
 		"BARROW_DOWNS": return 0.34
+		"ISENGARD": return 0.28
+		"MORDOR_NURN": return 0.38
+		"MORDOR_GORGOROTH": return 0.54
+		"MORDOR_UDUN", "MORDOR_SHADOW": return 0.48
 		_: return 0.0
 
 func get_height_at_tile(cell_x: int, cell_y: int) -> int:
@@ -151,6 +164,15 @@ func is_blocked(world_position: Vector2, current_height: float = -999.0) -> bool
 			return true
 		return false
 	var biome := biome_at_cell(cell_x, cell_y)
+	if biome == "ISENGARD":
+		# La muralla circular deja cuatro portales atravesables y Orthanc en el centro.
+		var tower := Vector2(landmarks.isengard_center() * CHUNK_SIZE + Vector2i(16, 16))
+		var distance_chunks := Vector2(cell_x, cell_y).distance_to(tower) / CHUNK_SIZE
+		var gate := absf(float(cell_y) - tower.y) < 5.0 or absf(float(cell_x) - tower.x) < 5.0
+		return (distance_chunks > 2.35 and distance_chunks < 2.48 and not gate) or distance_chunks < 0.045
+	if biome.begins_with("MORDOR_"):
+		# Ceniza transitables con escarpes dispersos; nunca sella el territorio.
+		return hash01(cell_x, cell_y, 93) < 0.07
 	if biome == "SHIRE":
 		return false
 	if biome == "OLD_FOREST":
@@ -160,6 +182,11 @@ func is_blocked(world_position: Vector2, current_height: float = -999.0) -> bool
 	return hash01(cell_x, cell_y, 93) < 0.025
 
 func poi_for_chunk(chunk: Vector2i) -> Dictionary:
+	var site := landmarks.site_at_chunk(chunk)
+	if not site.is_empty():
+		return {"kind": site, "position": Vector2((chunk.x * CHUNK_SIZE + 16) * TILE_SIZE, (chunk.y * CHUNK_SIZE + 16) * TILE_SIZE)}
+	if not landmarks.region_at_chunk(chunk).is_empty():
+		return {}
 	if chunk.x >= 0 and chunk.x <= 2 and chunk.y >= 0 and chunk.y <= 1:
 		return {}
 	var biome := biome_at_cell(chunk.x * CHUNK_SIZE + 16, chunk.y * CHUNK_SIZE + 16)
@@ -176,6 +203,8 @@ func poi_for_chunk(chunk: Vector2i) -> Dictionary:
 	return {"kind": kind, "position": Vector2((chunk.x * CHUNK_SIZE + 16) * TILE_SIZE, (chunk.y * CHUNK_SIZE + 16) * TILE_SIZE)}
 
 func camp_for_chunk(chunk: Vector2i) -> Dictionary:
+	if not landmarks.region_at_chunk(chunk).is_empty():
+		return {}
 	var biome := biome_at_cell(chunk.x * CHUNK_SIZE + 16, chunk.y * CHUNK_SIZE + 16)
 	if biome not in ["OLD_FOREST", "ERIADOR", "BARROW_DOWNS"] or hash01(chunk.x, chunk.y, 1500) > 0.115:
 		return {}
@@ -223,7 +252,11 @@ func spawn_chunk_population(chunk: Vector2i) -> void:
 		return
 	var biome := biome_at_cell(chunk.x * CHUNK_SIZE + 16, chunk.y * CHUNK_SIZE + 16)
 	var threat := mini(floori(Vector2(chunk).length() / 6.0) + (2 if biome == "MISTY_FOOTHILLS" else 0), 5)
-	var count: int = int({"SHIRE": 1, "OLD_FOREST": 3, "BREE_LAND": 2, "BARROW_DOWNS": 3, "ERIADOR": 2, "MISTY_FOOTHILLS": 3}.get(biome, 2))
+	var count: int = int({"SHIRE": 1, "OLD_FOREST": 3, "BREE_LAND": 2, "BARROW_DOWNS": 3, "ERIADOR": 2, "MISTY_FOOTHILLS": 3, "ISENGARD": 3, "MORDOR_UDUN": 4, "MORDOR_GORGOROTH": 4, "MORDOR_NURN": 3, "MORDOR_SHADOW": 4}.get(biome, 2))
+	if biome == "ISENGARD":
+		threat = 3
+	elif biome.begins_with("MORDOR_"):
+		threat = 5
 	for index in range(count):
 		var roll := hash01(chunk.x, chunk.y, 900 + index)
 		var kind := "orc"
@@ -231,6 +264,10 @@ func spawn_chunk_population(chunk: Vector2i) -> void:
 			kind = "spider" if roll < 0.42 else ("orc" if roll < 0.72 else "archer_orc")
 		elif biome == "MISTY_FOOTHILLS":
 			kind = "uruk" if roll < 0.35 else "orc"
+		elif biome == "ISENGARD":
+			kind = "uruk" if roll < 0.7 else "archer_orc"
+		elif biome.begins_with("MORDOR_"):
+			kind = "uruk" if roll < 0.38 else ("archer_orc" if roll < 0.63 else "orc")
 		elif biome == "BARROW_DOWNS":
 			kind = "spider" if roll < 0.52 else "orc"
 		elif roll < 0.28:
@@ -270,6 +307,10 @@ func _draw() -> void:
 		draw_elevation_debug(start_x, end_x, start_y, end_y)
 
 func draw_terrain_cell(cell_x: int, cell_y: int) -> void:
+	var landmark_biome := landmarks.region_at_chunk(Vector2i(floori(float(cell_x) / CHUNK_SIZE), floori(float(cell_y) / CHUNK_SIZE)))
+	if not landmark_biome.is_empty():
+		draw_landmark_tile(cell_x, cell_y, landmark_biome)
+		return
 	if shire.has_inner_cell(cell_x, cell_y):
 		draw_shire_tile(cell_x, cell_y, shire.tile_at(cell_x, cell_y))
 		return
@@ -295,6 +336,45 @@ func draw_terrain_cell(cell_x: int, cell_y: int) -> void:
 		draw_circle(center, 4.0, Color("38713a"))
 	if (cell_x + cell_y) % 9 == 0:
 		draw_line(Vector2(rect.position.x, center.y), Vector2(rect.end.x, center.y), Color(0.0, 0.0, 0.0, 0.035), 1.0)
+
+func draw_landmark_tile(cell_x: int, cell_y: int, biome: String) -> void:
+	var origin := Vector2(cell_x, cell_y) * TILE_SIZE
+	var rect := Rect2(origin, Vector2(TILE_SIZE + 1.0, TILE_SIZE + 1.0))
+	var noise := hash01(cell_x, cell_y, 2610)
+	if biome == "ISENGARD":
+		var tower_cell := Vector2(landmarks.isengard_center() * CHUNK_SIZE + Vector2i(16, 16))
+		var distance_chunks := Vector2(cell_x, cell_y).distance_to(tower_cell) / CHUNK_SIZE
+		var wall := distance_chunks > 2.35 and distance_chunks < 2.48
+		var road := absf(float(cell_y) - tower_cell.y) < 3.0 or absf(float(cell_x) - tower_cell.x) < 3.0
+		draw_rect(rect, Color("54564a") if road else Color("4f6344"))
+		if wall and not road:
+			draw_rect(rect, Color("252a2b"))
+			draw_rect(Rect2(origin + Vector2(2, 3), Vector2(28, 6)), Color("6d7470"))
+		elif noise < 0.22 and not road:
+			draw_rect(Rect2(origin + Vector2(9, 11), Vector2(14, 10)), Color("344338"))
+		if distance_chunks < 0.06:
+			draw_rect(rect, Color("181b22"))
+			draw_rect(Rect2(origin + Vector2(8, 3), Vector2(16, 25)), Color("333a45"))
+			draw_rect(Rect2(origin + Vector2(13, 5), Vector2(6, 16)), Color("8c9ca6"))
+		return
+	var ground := Color("4b4239")
+	match biome:
+		"MORDOR_UDUN": ground = Color("4a3b33")
+		"MORDOR_GORGOROTH": ground = Color("3a3637")
+		"MORDOR_NURN": ground = Color("625448")
+		"MORDOR_SHADOW": ground = Color("292d35")
+	draw_rect(rect, ground.lightened((noise - 0.5) * 0.10))
+	if noise < 0.15:
+		draw_rect(Rect2(origin + Vector2(5, 19), Vector2(15, 5)), ground.darkened(0.24))
+	elif noise > 0.93 and biome != "MORDOR_NURN":
+		draw_circle(origin + Vector2(17, 17), 4.0, Color("9b4931"))
+	var volcano_cell := Vector2((landmarks.mordor_center() + Vector2i(-2, -2)) * CHUNK_SIZE + Vector2i(16, 16))
+	var volcano_distance := Vector2(cell_x, cell_y).distance_to(volcano_cell)
+	if volcano_distance < 96.0:
+		if volcano_distance < 45.0:
+			draw_rect(rect, Color("5a332d"))
+		if hash01(cell_x, cell_y, 2611) > 0.76:
+			draw_rect(Rect2(origin + Vector2(8, 11), Vector2(16, 4)), Color("d45626"))
 
 func draw_shire_tile(cell_x: int, cell_y: int, tile: int) -> void:
 	# Texturas pixel art 16-bit renovadas estilo Zelda: A Link to the Past + elevaciones,
@@ -769,7 +849,19 @@ func draw_points_of_interest(start_x: int, end_x: int, start_y: int, end_y: int)
 
 func draw_poi(poi: Dictionary) -> void:
 	var position: Vector2 = poi.position
-	if poi.kind == "cave":
+	if poi.kind == "ORTHANC":
+		draw_circle(position, 28.0, Color("171b21"))
+		draw_rect(Rect2(position - Vector2(12, 25), Vector2(24, 46)), Color("202631"))
+		draw_rect(Rect2(position - Vector2(4, 22), Vector2(8, 36)), Color("84929b"))
+	elif poi.kind == "ORODRUIN":
+		draw_circle(position, 40.0, Color("302e30"))
+		draw_circle(position, 21.0, Color("6a3025"))
+		draw_circle(position, 10.0, Color("dc6127"))
+	elif poi.kind == "BARAD_DUR":
+		draw_rect(Rect2(position - Vector2(21, 24), Vector2(42, 48)), Color("15171b"))
+		draw_rect(Rect2(position - Vector2(8, 36), Vector2(16, 50)), Color("30313b"))
+		draw_circle(position + Vector2(0, -28), 5.0, Color("f27b2b"))
+	elif poi.kind == "cave":
 		draw_circle(position, 25.0, Color("30332e"))
 		draw_circle(position, 16.0, Color("0d1210"))
 	else:

@@ -33,6 +33,13 @@ elfos, vendedor, armas, armaduras con recarga, misiones y guardado. El
 prototipo web conserva los detalles adicionales mientras la presentación y los
 contenidos se trasladan iterativamente a nodos y recursos nativos de Godot.
 
+Isengard se genera en una carta regional de 9 × 9 chunks, con Orthanc en el
+centro, a 32–42 chunks del inicio. Mordor ocupa cuatro cartas contiguas
+(18 × 18 chunks) a 85–110 chunks del inicio, con Udûn, Gorgoroth, Núrn,
+tierras de sombra, Orodruin y Barad-dûr. Sus ubicaciones dependen de la
+semilla y permanecen estables. Los interiores y jefes de estas fortalezas
+todavía no están implementados.
+
 ## Ejecutar el prototipo web
 
 Desde la raíz del repositorio:

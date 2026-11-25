@@ -133,6 +133,11 @@ func draw_map_grid(rect: Rect2, expanded: bool) -> void:
 func map_color_for_chunk(chunk: Vector2i) -> Color:
 	var biome: String = str(game.active_world.biome_at_cell(chunk.x * MiddleEarthWorld.CHUNK_SIZE + 16, chunk.y * MiddleEarthWorld.CHUNK_SIZE + 16))
 	match biome:
+		"ISENGARD": return Color("4c5c51")
+		"MORDOR_UDUN": return Color("614238")
+		"MORDOR_GORGOROTH": return Color("473c3c")
+		"MORDOR_NURN": return Color("70594d")
+		"MORDOR_SHADOW": return Color("34313b")
 		"OLD_FOREST": return Color("28513a")
 		"BARROW_DOWNS": return Color("6e7145")
 		"MISTY_FOOTHILLS": return Color("6a6a6d")
