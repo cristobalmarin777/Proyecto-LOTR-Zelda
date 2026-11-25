@@ -30,6 +30,7 @@ var active_item := "potion"
 var miruvor_charges := 2
 var bow_unlocked := false
 var input_locked := false
+var spellbound := false
 var armor_cooldown := 0.0
 var invulnerability := 0.0
 var attack_time := 0.0
@@ -91,7 +92,7 @@ func _physics_process(delta: float) -> void:
 		queue_redraw()
 		return
 
-	if input_locked:
+	if input_locked or spellbound:
 		is_moving = false
 		idle_timer += delta
 		current_animation = "idle_" + facing_direction
@@ -237,7 +238,7 @@ func get_interaction_point(distance: float = 24.0) -> Vector2:
 	return global_position + get_facing_vector() * distance
 
 func request_attack() -> bool:
-	if input_locked or attack_cooldown > 0.0:
+	if input_locked or spellbound or attack_cooldown > 0.0:
 		return false
 	attack_time = 0.20
 	attack_cooldown = 0.24
@@ -255,7 +256,9 @@ func take_damage(raw_damage: int, source_position: Vector2) -> bool:
 	hp = maxi(0, hp - dealt)
 	invulnerability = 0.55
 	var retreat := (global_position - source_position).normalized()
-	global_position += retreat * 12.0
+	var pushed := global_position + retreat * 12.0
+	if world == null or not world.is_blocked(pushed, elevation):
+		global_position = pushed
 	queue_redraw()
 	if hp <= 0:
 		defeated.emit()

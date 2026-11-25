@@ -20,7 +20,7 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if is_instance_valid(enemy) and global_position.distance_to(enemy.global_position) < 15.0:
+		if enemy.is_visible_in_tree() and not enemy.is_queued_for_deletion() and global_position.distance_to(enemy.global_position) < 15.0:
 			enemy.take_hit(damage, global_position)
 			queue_free()
 			return

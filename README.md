@@ -37,8 +37,10 @@ Isengard se genera en una carta regional de 9 × 9 chunks, con Orthanc en el
 centro, a 32–42 chunks del inicio. Mordor ocupa cuatro cartas contiguas
 (18 × 18 chunks) a 85–110 chunks del inicio, con Udûn, Gorgoroth, Núrn,
 tierras de sombra, Orodruin y Barad-dûr. Sus ubicaciones dependen de la
-semilla y permanecen estables. Los interiores y jefes de estas fortalezas
-todavía no están implementados.
+semilla y permanecen estables. Pulsa E junto a Orthanc para entrar en la
+cámara de Saruman. Al perder la mitad de su vida, el mago cambia de túnica y
+combina fuego, telequinesis y sellos de luz. Puedes retirarte por la puerta
+sur. Después de vencer, pulsa F5 para guardar la victoria.
 
 ## Ejecutar el prototipo web
 

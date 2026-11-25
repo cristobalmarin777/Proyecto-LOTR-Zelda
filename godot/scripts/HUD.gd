@@ -46,8 +46,11 @@ func _draw() -> void:
 	var region: String = str(game.active_world.biome_display_name(game.active_world.biome_at_world(player.global_position)))
 	draw_string(font, Vector2(944, 20), "REGION: %s · ALTURA N%d" % [region, roundi(player.elevation)], HORIZONTAL_ALIGNMENT_RIGHT, -1, 12, Color("ffd866"))
 	draw_string(font, Vector2(944, 40), "[M] Mapa · [H] Debug Alturas", HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color("9ad972"))
-	draw_quest_panel(font)
-	draw_minimap(font)
+	if game.saruman != null:
+		draw_boss_bar(font, game.saruman)
+	else:
+		draw_quest_panel(font)
+		draw_minimap(font)
 	if not str(game.interaction_hint).is_empty() and not map_expanded:
 		draw_interaction_hint(font, str(game.interaction_hint))
 	if notification_time > 0.0:
@@ -68,6 +71,19 @@ func draw_heart(at: Vector2, filled: bool) -> void:
 	draw_circle(at + Vector2(4, 1), 4.0, color)
 	draw_circle(at + Vector2(10, 1), 4.0, color)
 	draw_colored_polygon(PackedVector2Array([at + Vector2(0, 3), at + Vector2(14, 3), at + Vector2(7, 13)]), color)
+
+func draw_boss_bar(font: Font, boss: SarumanBoss) -> void:
+	var rect := Rect2(156, 605, 648, 13)
+	var title := "Saruman el Blanco" if boss.phase == 1 else "Saruman de Muchos Colores"
+	draw_rect(Rect2(144, 574, 672, 53), Color("#15131cea"))
+	draw_string(font,Vector2(156,597),title,HORIZONTAL_ALIGNMENT_LEFT,500,17,Color("#f4eace"))
+	draw_string(font,Vector2(694,597),"Fase %d / 2" % boss.phase,HORIZONTAL_ALIGNMENT_RIGHT,110,13,Color("#ddcedd"))
+	draw_rect(rect,Color("#392a32"))
+	var fill := rect
+	fill.size.x *= float(boss.hp) / boss.max_hp
+	draw_rect(fill, Color("#aebac7") if boss.phase == 1 else Color("#aa72c6"))
+	draw_line(rect.position + Vector2(324,0), rect.position + Vector2(324,13), Color("#493b50"),2)
+	draw_rect(rect,Color("#c5ad88"),false,1)
 
 func draw_panel(rect: Rect2, title: String, value: String) -> void:
 	var font := ThemeDB.fallback_font

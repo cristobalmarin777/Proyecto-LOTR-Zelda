@@ -17,6 +17,7 @@ var world: MiddleEarthWorld
 var active_world: MiddleEarthWorld
 var y_sort_layer: Node2D
 var player: MiddleEarthPlayer
+var player_camera: Camera2D
 var darkness: DarknessOverlay
 var hud: MiddleEarthHUD
 var primary_quest := "Habla con Gandalf en Bolsón Cerrado."
@@ -31,6 +32,8 @@ var dialog_active := false
 var loot_chest: TreasureChest
 var interaction_hint := ""
 var uruk_defeated := false
+var saruman: SarumanBoss
+var saruman_defeated := false
 var dungeon: MiddleEarthDungeon
 var in_dungeon := false
 var overworld_return := Vector2.ZERO
@@ -55,10 +58,10 @@ func _ready() -> void:
 	world.elf_requested.connect(spawn_elf)
 	player.attack_started.connect(resolve_player_attack)
 	player.defeated.connect(respawn_player)
-	var camera := Camera2D.new()
-	camera.position_smoothing_enabled = true
-	camera.position_smoothing_speed = 8.0
-	player.add_child(camera)
+	player_camera = Camera2D.new()
+	player_camera.position_smoothing_enabled = true
+	player_camera.position_smoothing_speed = 8.0
+	player.add_child(player_camera)
 	darkness = OverlayScript.new()
 	darkness.z_index = 5
 	add_child(darkness)
@@ -82,7 +85,7 @@ func _process(_delta: float) -> void:
 	var nearby_orc := false
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var enemy: MiddleEarthEnemy = node as MiddleEarthEnemy
-		if enemy == null or not is_instance_valid(enemy):
+		if enemy == null or not enemy.is_visible_in_tree() or enemy.is_queued_for_deletion():
 			continue
 		if not in_dungeon and enemy.global_position.distance_to(player.global_position) > 1850.0:
 			enemy.queue_free()
@@ -95,6 +98,11 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
+	if saruman != null:
+		if player.spellbound:
+			return
+		if event.keycode == KEY_M:
+			return
 	if hud.loot_open:
 		if event.keycode in [KEY_E, KEY_ENTER, KEY_SPACE]:
 			claim_loot()
@@ -201,12 +209,12 @@ func resolve_player_attack(origin: Vector2, facing: Vector2, damage: int) -> voi
 	var hit_count := 0
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var enemy: MiddleEarthEnemy = node as MiddleEarthEnemy
-		if enemy == null or not is_instance_valid(enemy):
+		if enemy == null or not enemy.is_visible_in_tree() or enemy.is_queued_for_deletion():
 			continue
 		var displacement: Vector2 = enemy.global_position - origin
 		if displacement.length() <= 49.0 and displacement.normalized().dot(facing) > -0.15:
-			enemy.take_hit(damage, origin)
-			hit_count += 1
+			if enemy.take_hit(damage, origin):
+				hit_count += 1
 	var cut_signs := 0
 	for node in get_tree().get_nodes_in_group("signposts"):
 		var sign: ShireSignpost = node as ShireSignpost
@@ -425,7 +433,10 @@ func nearby_hint() -> String:
 func interact_landmark(site: String) -> void:
 	match site:
 		"ORTHANC":
-			start_dialog("Orthanc · Isengard", ["La torre negra se alza en el centro del círculo de Isengard. Saruman aún no tiene un encuentro de jefe implementado."])
+			if saruman_defeated:
+				start_dialog("Orthanc", ["Las puertas están abiertas. Por primera vez, la torre guarda silencio."])
+			else:
+				enter_dungeon({"kind": "ORTHANC"})
 		"ORODRUIN":
 			start_dialog("Orodruin · Monte del Destino", ["El calor del volcán atraviesa la ceniza. Sus laderas serán el centro de una misión futura."])
 		"BARAD_DUR":
@@ -436,7 +447,8 @@ func nearby_poi() -> Dictionary:
 	for y in range(chunk.y - 1, chunk.y + 2):
 		for x in range(chunk.x - 1, chunk.x + 2):
 			var poi: Dictionary = world.poi_for_chunk(Vector2i(x, y))
-			if not poi.is_empty() and player.global_position.distance_to(poi.position) < 46.0:
+			var reach := 108.0 if poi.get("kind") == "ORTHANC" else 46.0
+			if not poi.is_empty() and player.global_position.distance_to(poi.position) < reach:
 				return poi
 	return {}
 
@@ -445,17 +457,28 @@ func enter_dungeon(poi: Dictionary) -> void:
 	hide_overworld_gameplay(true)
 	world.visible = false
 	world.set_process(false)
-	dungeon = DungeonScript.new()
+	var at_orthanc: bool = poi.kind == "ORTHANC"
+	dungeon = OrthancHall.new() if at_orthanc else DungeonScript.new()
 	dungeon.z_index = 0
 	add_child(dungeon)
 	var kind := "mine" if str(poi.get("kind", "")) != "cave" else "cave"
-	dungeon.configure(kind, floori(world.hash01(floori(poi.position.x), floori(poi.position.y), 1102) * 2147483647.0), str(poi.get("biome", "OLD_FOREST")))
+	if not at_orthanc:
+		dungeon.configure(kind, floori(world.hash01(floori(poi.position.x), floori(poi.position.y), 1102) * 2147483647.0), str(poi.get("biome", "OLD_FOREST")))
 	active_world = dungeon
-	player.global_position = dungeon.exit_position() + Vector2(4.5 * 32.0, 0.0)
+	player.global_position = dungeon.exit_position() + (Vector2(0,-65) if at_orthanc else Vector2(4.5 * 32.0, 0.0))
 	player.setup(active_world)
 	dungeon.bind_player(player)
 	darkness.world = active_world
 	in_dungeon = true
+	if at_orthanc:
+		clear_flying_arrows()
+		saruman = SarumanBoss.new()
+		y_sort_layer.add_child(saruman)
+		saruman.prepare(player, dungeon as OrthancHall)
+		saruman.defeated.connect(on_saruman_defeated)
+		dungeon_nodes.append(saruman)
+		start_dialog("Saruman el Blanco", ["Has subido muchos peldaños para llegar hasta mí. Veremos si tus pies siguen siendo tan firmes."])
+		return
 	for data in dungeon.chests:
 		var chest: TreasureChest = ChestScript.new()
 		chest.z_index = 3
@@ -472,7 +495,23 @@ func enter_dungeon(poi: Dictionary) -> void:
 		dungeon_nodes.append(enemy)
 	start_dialog("Mina Subterránea" if kind == "mine" else "Cueva Profunda", ["Las sombras se agitan bajo la piedra. Encuentra el cofre y regresa por la entrada cuando estés preparado."])
 
-func leave_dungeon() -> void:
+func clear_flying_arrows() -> void:
+	for child in get_children():
+		if child is PlayerArrow or child is EnemyArrow:
+			child.set_physics_process(false)
+			child.queue_free()
+
+func on_saruman_defeated(_boss: MiddleEarthEnemy) -> void:
+	saruman_defeated = true
+	player.add_xp(180)
+	leave_dungeon(false)
+	start_dialog("Isengard", ["El báculo cae sobre el mármol. Cuando cruzas el umbral, la voz que dominaba el círculo de Isengard se ha apagado. (+180 XP)"])
+
+func leave_dungeon(show_message: bool = true) -> void:
+	if saruman != null:
+		saruman.finish()
+		clear_flying_arrows()
+		saruman = null
 	for node in dungeon_nodes:
 		if is_instance_valid(node):
 			node.queue_free()
@@ -489,7 +528,10 @@ func leave_dungeon() -> void:
 	player.setup(active_world)
 	world.bind_player(player)
 	darkness.world = active_world
-	start_dialog("Exterior", ["El aire de la Tierra Media vuelve a rodearte."])
+	player_camera.make_current()
+	player_camera.reset_smoothing()
+	if show_message:
+		start_dialog("Exterior", ["El aire de la Tierra Media vuelve a rodearte."])
 
 func hide_overworld_gameplay(hide: bool) -> void:
 	if hide:
@@ -612,13 +654,19 @@ func use_active_item() -> void:
 func respawn_player() -> void:
 	player.hp = player.max_hp
 	player.coins = maxi(0, player.coins - 5)
+	if saruman != null:
+		leave_dungeon(false)
+		player.input_locked = false
+		hud.notify("Recobras el sentido ante Orthanc. Puedes volver a desafiar a Saruman.")
+		return
 	player.global_position = world.shire.spawn_position
 	player.elevation = world.get_interpolated_elevation(player.global_position)
 	player.input_locked = false
 	hud.notify("Has caído. Despiertas en Bolsón Cerrado (Nivel 3) y pierdes 5 monedas.")
 
 func save_game() -> void:
-	if SaveGame.save_snapshot(player, world):
+	var save_position := overworld_return if in_dungeon else player.global_position
+	if SaveGame.save_snapshot(player, world, save_position, saruman_defeated):
 		hud.notify("Partida guardada en este dispositivo.")
 	else:
 		hud.notify("No se pudo guardar la partida.")
@@ -628,7 +676,7 @@ func load_game() -> void:
 	if snapshot.is_empty():
 		return
 	player.restore(snapshot)
+	saruman_defeated = bool(snapshot.get("saruman_defeated", false))
 	world.revealed_atlases = Dictionary(snapshot.get("revealed_atlases", {"0,0": true}))
 	world.opened_chests = Dictionary(snapshot.get("opened_chests", {}))
 	world.opened_story_chests = Dictionary(snapshot.get("opened_story_chests", {}))
-

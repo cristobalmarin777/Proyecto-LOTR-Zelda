@@ -3,10 +3,11 @@ extends RefCounted
 
 const PATH := "user://sombras_tierra_media.save"
 
-static func save_snapshot(player: MiddleEarthPlayer, world: MiddleEarthWorld) -> bool:
+static func save_snapshot(player: MiddleEarthPlayer, world: MiddleEarthWorld, save_position: Vector2, saruman_defeated: bool) -> bool:
 	var payload := {
 		"version": 1,
-		"position": {"x": player.global_position.x, "y": player.global_position.y},
+		"position": {"x": save_position.x, "y": save_position.y},
+		"saruman_defeated": saruman_defeated,
 		"hp": player.hp,
 		"coins": player.coins,
 		"xp": player.xp,
