@@ -45,7 +45,7 @@ func _draw() -> void:
 	draw_armor_gauge(Vector2(699, 27), player.armor_progress(), player.armor_defense() > 0)
 	var region: String = str(game.active_world.biome_display_name(game.active_world.biome_at_world(player.global_position)))
 	draw_string(font, Vector2(944, 20), "REGION: %s · ALTURA N%d" % [region, roundi(player.elevation)], HORIZONTAL_ALIGNMENT_RIGHT, -1, 12, Color("ffd866"))
-	draw_string(font, Vector2(944, 40), "[M] Mapa · [H] Debug Alturas", HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color("9ad972"))
+	draw_string(font, Vector2(944, 40), "[Esc] Menú · [M] Mapa · [H] Alturas", HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color("9ad972"))
 	if game.saruman != null:
 		draw_boss_bar(font, game.saruman)
 	else:

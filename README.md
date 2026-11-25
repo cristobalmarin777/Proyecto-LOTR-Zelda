@@ -42,6 +42,10 @@ cámara de Saruman. Al perder la mitad de su vida, el mago cambia de túnica y
 combina fuego, telequinesis y sellos de luz. Puedes retirarte por la puerta
 sur. Después de vencer, pulsa F5 para guardar la victoria.
 
+Para probar el jefe, pulsa `Esc` durante la partida, elige **Viajar a Isengard**
+y pulsa `E` ante la puerta de Orthanc. Este acceso temporal también permite
+repetir el duelo después de la victoria. Solo el primer triunfo otorga experiencia.
+
 ## Ejecutar el prototipo web
 
 Desde la raíz del repositorio:

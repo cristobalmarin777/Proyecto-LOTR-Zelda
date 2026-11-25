@@ -5,3 +5,14 @@
 [node name="SombrasDeLaTierraMedia" type="Node2D"]
 script = ExtResource("1_game")
 
+[node name="PauseMenu" type="ConfirmationDialog" parent="."]
+process_mode = 3
+title = "Menú de pausa"
+exclusive = true
+dialog_text = "Acceso temporal para probar el duelo contra Saruman."
+ok_button_text = "Viajar a Isengard"
+cancel_button_text = "Continuar"
+
+[connection signal="confirmed" from="PauseMenu" to="." method="travel_to_isengard"]
+[connection signal="visibility_changed" from="PauseMenu" to="." method="on_pause_menu_visibility_changed"]
+

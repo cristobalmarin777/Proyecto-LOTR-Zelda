@@ -4,6 +4,14 @@ extends SceneTree
 func _initialize() -> void:
 	call_deferred("run")
 
+func press_key(window: Window, key: Key) -> void:
+	var event := InputEventKey.new()
+	event.keycode = key
+	event.pressed = true
+	window.push_input(event)
+	event.pressed = false
+	window.push_input(event)
+
 func run() -> void:
 	var game = preload("res://scenes/Main.tscn").instantiate()
 	root.add_child(game)
@@ -13,9 +21,18 @@ func run() -> void:
 	var tower: Dictionary = game.world.poi_for_chunk(game.world.landmarks.isengard_center())
 	var doorstep: Vector2 = tower.position + Vector2(0,88)
 	game.saruman_defeated = false
-	p.global_position = doorstep
+	var departure := p.global_position
+	press_key(root, KEY_ESCAPE)
+	assert(paused and game.pause_menu.visible)
+	game.pause_menu.get_cancel_button().pressed.emit()
+	await process_frame
+	assert(not paused and p.global_position == departure)
+	press_key(root, KEY_ESCAPE)
+	game.pause_menu.get_ok_button().pressed.emit()
+	await process_frame
+	assert(not paused and not game.pause_menu.visible and p.global_position == doorstep)
 	assert(not game.world.is_blocked(doorstep))
-	game.interact()
+	press_key(root, KEY_E)
 	var boss: SarumanBoss = game.saruman
 	assert(boss != null and game.in_dungeon)
 	game.advance_dialog()
@@ -73,5 +90,18 @@ func run() -> void:
 	game.advance_dialog()
 	game.interact()
 	assert(game.saruman == null and game.dialog_active)
-	print("OK: acceso, fuego, esquiva, impacto, cambio de fase, espada, arco, derrota y victoria.")
+	game.advance_dialog()
+	press_key(root, KEY_ESCAPE)
+	game.pause_menu.get_ok_button().pressed.emit()
+	await process_frame
+	press_key(root, KEY_E)
+	assert(game.saruman != null and game.saruman_defeated)
+	game.advance_dialog()
+	var previous_xp := p.xp
+	var previous_level := p.level
+	game.saruman.take_hit(36, p.global_position)
+	game.saruman._physics_process(1.3)
+	game.saruman.take_hit(36, p.global_position)
+	assert(game.saruman == null and game.saruman_defeated and p.xp == previous_xp and p.level == previous_level)
+	print("OK: pausa, viaje a Orthanc, duelo completo y revancha sin duplicar experiencia.")
 	quit()

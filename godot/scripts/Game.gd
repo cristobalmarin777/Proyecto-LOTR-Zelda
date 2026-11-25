@@ -34,11 +34,13 @@ var interaction_hint := ""
 var uruk_defeated := false
 var saruman: SarumanBoss
 var saruman_defeated := false
+var saruman_rematch_available := false
 var dungeon: MiddleEarthDungeon
 var in_dungeon := false
 var overworld_return := Vector2.ZERO
 var dungeon_nodes: Array = []
 var hidden_overworld_nodes: Array = []
+@onready var pause_menu: ConfirmationDialog = $PauseMenu
 
 func _ready() -> void:
 	world = WorldScript.new()
@@ -134,6 +136,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.notify("Equipado: Arco de la Comarca [Q].")
 		return
 	match event.keycode:
+		KEY_ESCAPE:
+			if hud.map_expanded:
+				hud.map_expanded = false
+				player.input_locked = false
+			else:
+				get_viewport().set_input_as_handled()
+				pause_menu.popup_centered()
+				pause_menu.get_cancel_button().grab_focus()
 		KEY_F11:
 			toggle_fullscreen()
 		KEY_SPACE:
@@ -161,6 +171,23 @@ func _unhandled_input(event: InputEvent) -> void:
 				hud.notify("Equipado: Arco de la Comarca [Q].")
 		KEY_F5:
 			save_game()
+
+func on_pause_menu_visibility_changed() -> void:
+	get_tree().paused = pause_menu.visible
+
+func travel_to_isengard() -> void:
+	if in_dungeon:
+		leave_dungeon(false)
+	clear_flying_arrows()
+	var tower := world.poi_for_chunk(world.landmarks.isengard_center())
+	player.is_ledge_jumping = false
+	player.ledge_jump_height = 0.0
+	player.land_recovery_timer = 0.0
+	player.global_position = tower.position + Vector2(0, 88)
+	player.setup(world)
+	player_camera.reset_smoothing()
+	saruman_rematch_available = saruman_defeated
+	hud.notify("Estás ante Orthanc. Pulsa E para desafiar a Saruman.")
 
 func toggle_fullscreen() -> void:
 	var mode := DisplayServer.window_get_mode()
@@ -433,9 +460,10 @@ func nearby_hint() -> String:
 func interact_landmark(site: String) -> void:
 	match site:
 		"ORTHANC":
-			if saruman_defeated:
+			if saruman_defeated and not saruman_rematch_available:
 				start_dialog("Orthanc", ["Las puertas están abiertas. Por primera vez, la torre guarda silencio."])
 			else:
+				saruman_rematch_available = false
 				enter_dungeon({"kind": "ORTHANC"})
 		"ORODRUIN":
 			start_dialog("Orodruin · Monte del Destino", ["El calor del volcán atraviesa la ceniza. Sus laderas serán el centro de una misión futura."])
@@ -502,9 +530,12 @@ func clear_flying_arrows() -> void:
 			child.queue_free()
 
 func on_saruman_defeated(_boss: MiddleEarthEnemy) -> void:
+	leave_dungeon(false)
+	if saruman_defeated:
+		start_dialog("Isengard", ["Has vencido a Saruman en el duelo de práctica."])
+		return
 	saruman_defeated = true
 	player.add_xp(180)
-	leave_dungeon(false)
 	start_dialog("Isengard", ["El báculo cae sobre el mármol. Cuando cruzas el umbral, la voz que dominaba el círculo de Isengard se ha apagado. (+180 XP)"])
 
 func leave_dungeon(show_message: bool = true) -> void:
